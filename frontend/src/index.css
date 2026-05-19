@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f7f8fc;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.min-h-screen {
+  min-height: 100svh;
+}
+
+.overflow-x-hidden {
+  overflow-x: hidden;
+}
+
+.bg-\[\#f7f4ef\] {
+  background: #f7f4ef;
+}
