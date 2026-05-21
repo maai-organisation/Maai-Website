@@ -10,9 +10,9 @@ const router = express.Router();
 const manageEvents = authorizeRoles("superadmin", "it_staff");
 const eventTypes = new Set(["camp", "workshop", "awareness", "conference", "research", "meeting", "training", "other"]);
 const eventVisibilities = new Set(["public", "members_only", "internal"]);
-const eventStatuses = new Set(["draft", "published", "completed", "cancelled", "archived"]);
+const eventStatuses = new Set(["draft", "published", "upcoming", "ongoing", "completed", "cancelled", "archived"]);
 const attendanceStatuses = new Set(["registered", "attended", "absent"]);
-const participationStatuses = new Set(["registered", "participated", "completed", "cancelled"]);
+const participationStatuses = new Set(["pending", "approved", "rejected", "registered", "participated", "completed", "cancelled"]);
 const eventSortColumns = new Set(["title", "event_type", "location", "start_datetime", "visibility", "status", "certificate_enabled", "created_at"]);
 
 function cleanString(value, maxLength = 1000) {
@@ -28,6 +28,11 @@ function cleanLongText(value, maxLength = 5000) {
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, maxLength);
+}
+
+function cleanDateTime(value) {
+  const text = cleanString(value, 40);
+  return text ? text.replace("T", " ") : null;
 }
 
 function toBoolean(value) {
@@ -74,22 +79,29 @@ function normalizeEvent(input = {}) {
       slug,
       eventType,
       description: cleanLongText(input.description),
-      bannerUrl: cleanOptionalUrl(input.bannerUrl || input.banner_url, "Banner URL"),
+      bannerUrl: cleanOptionalUrl(input.bannerUrl || input.banner_url || input.banner, "Banner URL"),
       location: cleanString(input.location, 220) || null,
-      startDatetime: cleanString(input.startDatetime || input.start_datetime || input.eventDate || input.event_date, 40) || null,
-      endDatetime: cleanString(input.endDatetime || input.end_datetime, 40) || null,
-      capacity: input.capacity === "" || input.capacity === undefined || input.capacity === null ? null : Number(input.capacity),
+      startDatetime: cleanDateTime(input.startDatetime || input.start_datetime || input.eventDate || input.event_date),
+      endDatetime: cleanDateTime(input.endDatetime || input.end_datetime),
+      capacity: input.capacity === "" || input.capacity === undefined || input.capacity === null ? (input.maxVolunteers || input.max_volunteers || null) : Number(input.capacity),
       visibility,
       status,
-      certificateEnabled: toBoolean(input.certificateEnabled ?? input.certificate_enabled),
+      certificateEnabled: toBoolean(input.certificateEnabled ?? input.certificate_enabled ?? input.certificateEligible ?? input.certificate_eligible),
       certificateTemplateId: input.certificateTemplateId || input.certificate_template_id || null,
       initiativeId: input.initiativeId || input.initiative_id || null,
+      whatsappGroupLink: cleanOptionalUrl(input.whatsappGroupLink || input.whatsapp_group_link || input.whatsappLink || input.whatsapp_link, "WhatsApp group link"),
+      registrationDeadline: cleanDateTime(input.registrationDeadline || input.registration_deadline),
+      volunteerInstructions: cleanLongText(input.volunteerInstructions || input.volunteer_instructions, 5000),
+      requiredSkills: cleanLongText(input.requiredSkills || input.required_skills, 3000),
+      coordinatorContact: cleanString(input.coordinatorContact || input.coordinator_contact, 180) || null,
     },
     errors,
   };
 }
 
 function mapEvent(row) {
+  const participantCount = Number(row.participant_count || row.participantCount || 0);
+  const capacity = row.capacity === null || row.capacity === undefined ? null : Number(row.capacity);
   return {
     id: row.id,
     title: row.title,
@@ -97,20 +109,43 @@ function mapEvent(row) {
     eventType: row.event_type,
     event_type: row.event_type,
     description: row.description,
-    bannerUrl: row.banner_url,
-    banner_url: row.banner_url,
+    bannerUrl: row.banner_url || row.banner,
+    banner_url: row.banner_url || row.banner,
+    banner: row.banner || row.banner_url,
     location: row.location,
     eventDate: row.event_date,
     startDatetime: row.start_datetime,
     start_datetime: row.start_datetime,
     endDatetime: row.end_datetime,
     end_datetime: row.end_datetime,
-    capacity: row.capacity,
+    capacity: row.capacity ?? row.max_volunteers,
+    maxVolunteers: row.max_volunteers ?? row.capacity,
+    max_volunteers: row.max_volunteers ?? row.capacity,
+    participantCount,
+    participant_count: participantCount,
+    seatsAvailable: capacity === null ? null : Math.max(capacity - participantCount, 0),
+    seats_available: capacity === null ? null : Math.max(capacity - participantCount, 0),
+    isRegistered: Boolean(row.is_registered || row.isRegistered),
+    is_registered: Boolean(row.is_registered || row.isRegistered),
     visibility: row.visibility,
     status: row.status,
-    certificateEnabled: Boolean(row.certificate_enabled),
-    certificate_enabled: Boolean(row.certificate_enabled),
+    certificateEnabled: Boolean(row.certificate_enabled ?? row.certificate_eligible),
+    certificate_enabled: Boolean(row.certificate_enabled ?? row.certificate_eligible),
+    certificateEligible: Boolean(row.certificate_eligible ?? row.certificate_enabled),
+    certificate_eligible: Boolean(row.certificate_eligible ?? row.certificate_enabled),
     certificateTemplateId: row.certificate_template_id,
+    whatsappGroupLink: row.whatsapp_group_link || row.whatsapp_link,
+    whatsapp_group_link: row.whatsapp_group_link || row.whatsapp_link,
+    whatsappLink: row.whatsapp_link || row.whatsapp_group_link,
+    whatsapp_link: row.whatsapp_link || row.whatsapp_group_link,
+    registrationDeadline: row.registration_deadline,
+    registration_deadline: row.registration_deadline,
+    volunteerInstructions: row.volunteer_instructions,
+    volunteer_instructions: row.volunteer_instructions,
+    requiredSkills: row.required_skills,
+    required_skills: row.required_skills,
+    coordinatorContact: row.coordinator_contact,
+    coordinator_contact: row.coordinator_contact,
     initiativeId: row.initiative_id,
     initiative_id: row.initiative_id,
     createdBy: row.created_by,
@@ -141,6 +176,8 @@ function mapParticipant(row) {
     fullName: row.full_name,
     full_name: row.full_name,
     email: row.email,
+    phone: row.phone,
+    college: row.college,
   };
 }
 
@@ -216,6 +253,16 @@ function mapMyCamp(row) {
     impactScore: row.impact_score || null,
     impact_score: row.impact_score || null,
     feedback: row.feedback || null,
+    whatsappGroupLink: row.whatsapp_group_link,
+    whatsapp_group_link: row.whatsapp_group_link,
+    registrationDeadline: row.registration_deadline,
+    registration_deadline: row.registration_deadline,
+    volunteerInstructions: row.volunteer_instructions,
+    volunteer_instructions: row.volunteer_instructions,
+    requiredSkills: row.required_skills,
+    required_skills: row.required_skills,
+    coordinatorContact: row.coordinator_contact,
+    coordinator_contact: row.coordinator_contact,
   };
 }
 
@@ -241,7 +288,7 @@ async function loadVolunteer(id) {
 }
 
 async function notifyPublishedEvent(event) {
-  if (!event || event.status !== "published") return;
+  if (!event || !["published", "upcoming", "ongoing"].includes(event.status)) return;
   await createVolunteerNotifications("WHERE membership_status = 'verified' AND role = 'volunteer'", [], {
     title: "New event created",
     message: `${event.title} is now available in Maai events.`,
@@ -339,7 +386,9 @@ router.get(
     if (filter === "certificates") filters.push("ec.id IS NOT NULL AND ec.status <> 'revoked'");
     if (filter === "no_certificate") filters.push("(ec.id IS NULL OR ec.status = 'revoked')");
     if (filter === "completed") filters.push("ep.participation_status IN ('participated', 'completed')");
-    if (filter === "upcoming") filters.push("(e.start_datetime IS NULL OR e.start_datetime >= NOW()) AND ep.participation_status = 'registered'");
+    if (filter === "upcoming") filters.push("(e.start_datetime IS NULL OR e.start_datetime >= NOW()) AND ep.participation_status IN ('approved', 'registered')");
+    if (filter === "pending") filters.push("ep.participation_status = 'pending'");
+    if (filter === "approved") filters.push("ep.participation_status IN ('approved', 'registered')");
 
     const [rows] = await pool.query(
       `
@@ -355,6 +404,11 @@ router.get(
           e.location,
           e.status,
           e.ngo_id,
+          e.whatsapp_group_link,
+          e.registration_deadline,
+          e.volunteer_instructions,
+          e.required_skills,
+          e.coordinator_contact,
           ep.id AS participant_id,
           ep.attendance_status,
           ep.participation_status,
@@ -397,6 +451,11 @@ router.get(
           e.location,
           e.status,
           e.ngo_id,
+          e.whatsapp_group_link,
+          e.registration_deadline,
+          e.volunteer_instructions,
+          e.required_skills,
+          e.coordinator_contact,
           ep.id AS participant_id,
           ep.attendance_status,
           ep.participation_status,
@@ -427,17 +486,21 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const admin = req.user.role === "superadmin" || req.user.role === "it_staff";
+    try {
     const search = cleanString(req.query.search, 180);
-    const eventType = cleanString(req.query.type || req.query.eventType || req.query.event_type, 40);
-    const status = cleanString(req.query.status, 40);
+    const requestedType = cleanString(req.query.type || req.query.eventType || req.query.event_type, 40);
+    const eventType = eventTypes.has(requestedType) || requestedType === "all" ? requestedType : "all";
+    const requestedStatus = cleanString(req.query.status, 40);
+    const status = eventStatuses.has(requestedStatus) || requestedStatus === "all" ? requestedStatus : "all";
     const visibility = cleanString(req.query.visibility, 40);
     const certificateEnabled = cleanString(req.query.certificateEnabled || req.query.certificate_enabled, 20);
     const sort = eventSortColumns.has(req.query.sort) ? req.query.sort : "start_datetime";
     const direction = String(req.query.direction || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
     const filters = [];
     const values = [];
+    console.log({ route: "GET /api/events", status, type: eventType, direction });
 
-    if (!admin) filters.push("status = 'published'");
+    if (!admin) filters.push("status IN ('published', 'upcoming', 'ongoing')");
     if (eventType && eventType !== "all") {
       filters.push("event_type = ?");
       values.push(eventType);
@@ -463,15 +526,25 @@ router.get(
     const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
     const [rows] = await pool.query(
       `
-        SELECT *
-        FROM events
+        SELECT
+          e.*,
+          (SELECT COUNT(*)
+             FROM event_participants ep
+            WHERE ep.event_id = e.id
+              AND COALESCE(ep.participation_status, ep.attendance_status, 'registered') IN ('approved', 'registered', 'participated', 'completed')) AS participant_count,
+          ${req.user.role === "volunteer" ? "(SELECT COUNT(*) FROM event_participants mine WHERE mine.event_id = e.id AND mine.volunteer_id = ?) AS is_registered" : "0 AS is_registered"}
+        FROM events e
         ${where}
         ORDER BY ${sort} ${direction}, created_at DESC
       `,
-      values,
+      req.user.role === "volunteer" ? [req.user.id, ...values] : values,
     );
 
     res.json({ success: true, data: rows.map(mapEvent) });
+    } catch (err) {
+      console.error("GET /api/events failed", err);
+      res.status(200).json({ success: false, data: [], message: "Unable to load events right now." });
+    }
   }),
 );
 
@@ -488,31 +561,42 @@ router.post(
     const [result] = await pool.query(
       `
         INSERT INTO events
-          (title, slug, description, event_type, banner_url, event_date, start_datetime, end_datetime, location, capacity, visibility, status, certificate_enabled, certificate_template_id, initiative_id, created_by)
-        VALUES (?, ?, ?, ?, ?, DATE(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (title, slug, description, event_type, type, camp_type, banner_url, banner, event_date, start_datetime, end_datetime, location, capacity, max_volunteers, visibility, status, certificate_enabled, certificate_eligible, certificate_template_id, initiative_id, whatsapp_group_link, whatsapp_link, registration_deadline, volunteer_instructions, required_skills, coordinator_contact, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATE(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.title,
         data.slug,
         data.description,
         data.eventType,
+        data.eventType,
+        data.eventType,
+        data.bannerUrl,
         data.bannerUrl,
         data.startDatetime,
         data.startDatetime,
         data.endDatetime,
         data.location,
         data.capacity,
+        data.capacity,
         data.visibility,
         data.status,
         data.certificateEnabled ? 1 : 0,
+        data.certificateEnabled ? 1 : 0,
         data.certificateTemplateId,
         data.initiativeId,
+        data.whatsappGroupLink,
+        data.whatsappGroupLink,
+        data.registrationDeadline,
+        data.volunteerInstructions,
+        data.requiredSkills,
+        data.coordinatorContact,
         req.user.id,
       ],
     );
 
     await logEventAudit(req, "create", result.insertId, { status: data.status, eventType: data.eventType });
-    if (data.status === "published") await logEventAudit(req, "publish", result.insertId);
+    if (["published", "upcoming", "ongoing"].includes(data.status)) await logEventAudit(req, "publish", result.insertId);
     const createdEvent = await loadEvent(result.insertId);
     await notifyPublishedEvent(createdEvent);
     res.status(201).json({ success: true, data: mapEvent(createdEvent) });
@@ -528,7 +612,7 @@ router.get(
 
     const [participants] = await pool.query(
       `
-        SELECT ep.*, v.full_name, v.email
+        SELECT ep.*, v.full_name, v.email, v.phone, v.college
         FROM event_participants ep
         INNER JOIN volunteers v ON v.id = ep.volunteer_id
         WHERE ep.event_id = ?
@@ -559,6 +643,63 @@ router.get(
   }),
 );
 
+router.post(
+  "/:id/register",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== "volunteer") {
+      return res.status(403).json({ success: false, message: "Volunteer account required." });
+    }
+
+    const event = await loadEvent(req.params.id);
+    if (!event || !["published", "upcoming", "ongoing"].includes(event.status)) {
+      return res.status(404).json({ success: false, message: "Event is not available for registration." });
+    }
+
+    if (event.registration_deadline && new Date(event.registration_deadline).getTime() < Date.now()) {
+      return res.status(400).json({ success: false, message: "Registration is closed for this event." });
+    }
+
+    if (event.capacity) {
+      const [[countRow]] = await pool.query(
+        `
+          SELECT COUNT(*) AS total
+          FROM event_participants
+          WHERE event_id = ?
+            AND COALESCE(participation_status, attendance_status, 'registered') <> 'cancelled'
+        `,
+        [req.params.id],
+      );
+      if (Number(countRow.total || 0) >= Number(event.capacity)) {
+        return res.status(400).json({ success: false, message: "This event is full." });
+      }
+    }
+
+    await pool.query(
+      `
+        INSERT INTO event_participants
+          (event_id, volunteer_id, role, attendance_status, participation_status, added_by)
+        VALUES (?, ?, 'Volunteer', 'registered', 'pending', ?)
+        ON DUPLICATE KEY UPDATE
+          attendance_status = 'registered',
+          participation_status = IF(participation_status = 'rejected', 'pending', participation_status)
+      `,
+      [req.params.id, req.user.id, req.user.id],
+    );
+
+    await createNotification({
+      recipientType: "volunteer",
+      recipientId: req.user.id,
+      title: "Camp registration pending",
+      message: `Your registration for ${event.title} is awaiting approval.`,
+      notificationType: "event",
+      actionUrl: "/volunteer/my-camps",
+    });
+
+    res.status(201).json({ success: true, data: { eventId: Number(req.params.id), status: "pending" } });
+  }),
+);
+
 router.put(
   "/:id",
   requireAuth,
@@ -579,17 +720,28 @@ router.put(
             slug = ?,
             description = ?,
             event_type = ?,
+            type = ?,
+            camp_type = ?,
             banner_url = ?,
+            banner = ?,
             event_date = DATE(?),
             start_datetime = ?,
             end_datetime = ?,
             location = ?,
             capacity = ?,
+            max_volunteers = ?,
             visibility = ?,
             status = ?,
             certificate_enabled = ?,
+            certificate_eligible = ?,
             certificate_template_id = ?,
-            initiative_id = ?
+            initiative_id = ?,
+            whatsapp_group_link = ?,
+            whatsapp_link = ?,
+            registration_deadline = ?,
+            volunteer_instructions = ?,
+            required_skills = ?,
+            coordinator_contact = ?
         WHERE id = ?
       `,
       [
@@ -597,17 +749,28 @@ router.put(
         data.slug,
         data.description,
         data.eventType,
+        data.eventType,
+        data.eventType,
+        data.bannerUrl,
         data.bannerUrl,
         data.startDatetime,
         data.startDatetime,
         data.endDatetime,
         data.location,
         data.capacity,
+        data.capacity,
         data.visibility,
         data.status,
         data.certificateEnabled ? 1 : 0,
+        data.certificateEnabled ? 1 : 0,
         data.certificateTemplateId,
         data.initiativeId,
+        data.whatsappGroupLink,
+        data.whatsappGroupLink,
+        data.registrationDeadline,
+        data.volunteerInstructions,
+        data.requiredSkills,
+        data.coordinatorContact,
         req.params.id,
       ],
     );
@@ -615,7 +778,7 @@ router.put(
     await logEventAudit(req, "edit", req.params.id, { status: data.status, eventType: data.eventType });
     if (data.status === "published") await logEventAudit(req, "publish", req.params.id);
     const updatedEvent = await loadEvent(req.params.id);
-    if (event.status !== "published" && updatedEvent.status === "published") await notifyPublishedEvent(updatedEvent);
+    if (!["published", "upcoming", "ongoing"].includes(event.status) && ["published", "upcoming", "ongoing"].includes(updatedEvent.status)) await notifyPublishedEvent(updatedEvent);
     res.json({ success: true, data: mapEvent(updatedEvent) });
   }),
 );
@@ -633,7 +796,35 @@ router.patch(
 
     await logEventAudit(req, status === "published" ? "publish" : status === "completed" ? "complete" : status === "archived" ? "archive" : status, req.params.id);
     const updatedEvent = await loadEvent(req.params.id);
-    if (status === "published") await notifyPublishedEvent(updatedEvent);
+    if (["published", "upcoming", "ongoing"].includes(status)) await notifyPublishedEvent(updatedEvent);
+    if (status === "completed" && updatedEvent?.certificate_enabled) {
+      const [participants] = await pool.query(
+        "SELECT volunteer_id FROM event_participants WHERE event_id = ? AND participation_status IN ('approved', 'registered', 'participated', 'completed')",
+        [req.params.id],
+      );
+      for (const participant of participants) {
+        await pool.query(
+          `
+            INSERT INTO event_certificates
+              (event_id, volunteer_id, certificate_type, status, verification_code, issued_by, issued_at)
+            VALUES (?, ?, 'event', 'eligible', ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+              status = IF(status = 'revoked', 'eligible', status),
+              issued_by = VALUES(issued_by),
+              issued_at = COALESCE(issued_at, NOW())
+          `,
+          [req.params.id, participant.volunteer_id, newCertificateCode(), req.user.id],
+        );
+        await createNotification({
+          recipientType: "volunteer",
+          recipientId: participant.volunteer_id,
+          title: "Certificate eligible",
+          message: `${updatedEvent.title} certificate is ready to claim.`,
+          notificationType: "certificate",
+          actionUrl: "/volunteer/certificates",
+        });
+      }
+    }
     res.json({ success: true, data: mapEvent(updatedEvent) });
   }),
 );
@@ -661,7 +852,7 @@ router.post(
     const participationStatus = participationStatuses.has(req.body?.participationStatus || req.body?.participation_status || req.body?.attendanceStatus || req.body?.attendance_status)
       ? req.body.participationStatus || req.body.participation_status || req.body.attendanceStatus || req.body.attendance_status
       : "registered";
-    const attendanceStatus = participationStatus === "cancelled" ? "absent" : participationStatus === "registered" ? "registered" : "attended";
+    const attendanceStatus = ["cancelled", "rejected"].includes(participationStatus) ? "absent" : ["registered", "approved", "pending"].includes(participationStatus) ? "registered" : "attended";
 
     await pool.query(
       `
@@ -698,7 +889,7 @@ router.patch(
     const participationStatus = participationStatuses.has(req.body?.participationStatus || req.body?.participation_status || req.body?.attendanceStatus || req.body?.attendance_status)
       ? req.body.participationStatus || req.body.participation_status || req.body.attendanceStatus || req.body.attendance_status
       : "registered";
-    const attendanceStatus = participationStatus === "cancelled" ? "absent" : participationStatus === "registered" ? "registered" : "attended";
+    const attendanceStatus = ["cancelled", "rejected"].includes(participationStatus) ? "absent" : ["registered", "approved", "pending"].includes(participationStatus) ? "registered" : "attended";
 
     const [result] = await pool.query(
       `
@@ -713,6 +904,26 @@ router.patch(
     if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Participant not found." });
 
     await logEventAudit(req, "participation", req.params.id, { participantId: req.params.participantId, participationStatus });
+    const [rows] = await pool.query(
+      `
+        SELECT ep.volunteer_id, e.title
+        FROM event_participants ep
+        INNER JOIN events e ON e.id = ep.event_id
+        WHERE ep.id = ? AND ep.event_id = ?
+        LIMIT 1
+      `,
+      [req.params.participantId, req.params.id],
+    );
+    if (rows[0] && ["approved", "rejected"].includes(participationStatus)) {
+      await createNotification({
+        recipientType: "volunteer",
+        recipientId: rows[0].volunteer_id,
+        title: participationStatus === "approved" ? "Camp registration approved" : "Camp registration rejected",
+        message: `${rows[0].title} registration has been ${participationStatus}.`,
+        notificationType: "event",
+        actionUrl: "/volunteer/my-camps",
+      });
+    }
     res.json({ success: true });
   }),
 );

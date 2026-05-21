@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -17,13 +18,23 @@ const { sendTemplateEmail } = require("./utils/emailService");
 const { requireAuth } = require("./middleware/authMiddleware");
 const { authorizeRoles } = require("./middleware/roleMiddleware");
 const { auditAdminAction } = require("./middleware/auditMiddleware");
-require("dotenv").config();
 
 const app = express();
+const configuredOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowUnconfiguredCors = process.env.NODE_ENV !== "production" && configuredOrigins.length === 0;
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin(origin, callback) {
+      if (!origin || allowUnconfiguredCors || configuredOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );

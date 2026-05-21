@@ -13,7 +13,7 @@ async function ensureColumn(table, column, definition) {
   );
 
   if (rows.length === 0) {
-    await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    await pool.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
   }
 }
 
@@ -794,8 +794,29 @@ async function initDatabase() {
   await ensureColumn("announcements", "publish_at", "TIMESTAMP NULL");
   await ensureColumn("announcements", "expire_at", "TIMESTAMP NULL");
   await ensureColumn("announcements", "status", "ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft'");
+  await ensureColumn("announcements", "event_id", "INT UNSIGNED NULL");
   await pool.query("ALTER TABLE announcements MODIFY COLUMN message TEXT NOT NULL");
-  await pool.query("ALTER TABLE announcements MODIFY COLUMN audience ENUM('volunteers', 'ngos', 'all', 'admins') NOT NULL DEFAULT 'all'");
+  await pool.query("ALTER TABLE announcements MODIFY COLUMN audience ENUM('volunteers', 'ngos', 'all', 'admins', 'event_participants') NOT NULL DEFAULT 'all'");
+  await ensureIndex("announcements", "announcements_event_lookup", "KEY announcements_event_lookup (event_id, audience, status)");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS announcement_reads (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      announcement_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL,
+      read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY announcement_reads_unique (announcement_id, user_id),
+      KEY announcement_reads_user_lookup (user_id, read_at),
+      CONSTRAINT announcement_reads_announcement_fk
+        FOREIGN KEY (announcement_id) REFERENCES announcements(id)
+        ON DELETE CASCADE,
+      CONSTRAINT announcement_reads_user_fk
+        FOREIGN KEY (user_id) REFERENCES volunteers(id)
+        ON DELETE CASCADE
+    )
+  `);
   await pool.query(`
     INSERT INTO announcements
       (title, message, announcement_type, audience, priority, send_email, publish_at, status, created_by)
@@ -904,7 +925,7 @@ async function initDatabase() {
       location VARCHAR(220) NULL,
       capacity INT NULL,
       visibility ENUM('public', 'members_only', 'internal') NOT NULL DEFAULT 'members_only',
-      status ENUM('draft', 'published', 'completed', 'cancelled', 'archived') NOT NULL DEFAULT 'draft',
+      status ENUM('draft', 'published', 'upcoming', 'ongoing', 'completed', 'cancelled', 'archived') NOT NULL DEFAULT 'draft',
       certificate_enabled TINYINT(1) NOT NULL DEFAULT 0,
       certificate_template_id VARCHAR(120) NULL,
       initiative_id INT UNSIGNED NULL,
@@ -913,6 +934,11 @@ async function initDatabase() {
       camp_request_id INT UNSIGNED NULL,
       public_registration TINYINT(1) NOT NULL DEFAULT 0,
       feedback_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      whatsapp_group_link TEXT NULL,
+      registration_deadline DATETIME NULL,
+      volunteer_instructions TEXT NULL,
+      required_skills TEXT NULL,
+      coordinator_contact VARCHAR(180) NULL,
       created_by INT UNSIGNED NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -928,13 +954,24 @@ async function initDatabase() {
   await ensureColumn("events", "end_datetime", "DATETIME NULL");
   await ensureColumn("events", "capacity", "INT NULL");
   await ensureColumn("events", "visibility", "ENUM('public', 'members_only', 'internal') NOT NULL DEFAULT 'members_only'");
-  await ensureColumn("events", "status", "ENUM('draft', 'published', 'completed', 'cancelled', 'archived') NOT NULL DEFAULT 'draft'");
+  await ensureColumn("events", "status", "ENUM('draft', 'published', 'upcoming', 'ongoing', 'completed', 'cancelled', 'archived') NOT NULL DEFAULT 'draft'");
   await ensureColumn("events", "initiative_id", "INT UNSIGNED NULL");
   await ensureColumn("events", "qr_enabled", "TINYINT(1) NOT NULL DEFAULT 0");
   await ensureColumn("events", "ngo_id", "INT UNSIGNED NULL");
   await ensureColumn("events", "camp_request_id", "INT UNSIGNED NULL");
   await ensureColumn("events", "public_registration", "TINYINT(1) NOT NULL DEFAULT 0");
   await ensureColumn("events", "feedback_enabled", "TINYINT(1) NOT NULL DEFAULT 0");
+  await ensureColumn("events", "whatsapp_group_link", "TEXT NULL");
+  await ensureColumn("events", "type", "VARCHAR(50) NULL");
+  await ensureColumn("events", "camp_type", "VARCHAR(100) NULL");
+  await ensureColumn("events", "whatsapp_link", "TEXT NULL");
+  await ensureColumn("events", "max_volunteers", "INT NULL");
+  await ensureColumn("events", "certificate_eligible", "TINYINT(1) NOT NULL DEFAULT 0");
+  await ensureColumn("events", "banner", "TEXT NULL");
+  await ensureColumn("events", "registration_deadline", "DATETIME NULL");
+  await ensureColumn("events", "volunteer_instructions", "TEXT NULL");
+  await ensureColumn("events", "required_skills", "TEXT NULL");
+  await ensureColumn("events", "coordinator_contact", "VARCHAR(180) NULL");
   await ensureIndex("events", "events_status_datetime_lookup", "KEY events_status_datetime_lookup (status, visibility, start_datetime)");
   await ensureIndex("events", "events_slug_lookup", "KEY events_slug_lookup (slug)");
   await pool.query(`
@@ -949,9 +986,16 @@ async function initDatabase() {
         END,
         start_datetime = COALESCE(start_datetime, CASE WHEN event_date IS NOT NULL THEN TIMESTAMP(event_date) ELSE NULL END),
         status = COALESCE(status, 'published'),
+        type = COALESCE(type, event_type),
+        camp_type = COALESCE(camp_type, event_type),
+        whatsapp_link = COALESCE(whatsapp_link, whatsapp_group_link),
+        max_volunteers = COALESCE(max_volunteers, capacity),
+        certificate_eligible = COALESCE(certificate_eligible, certificate_enabled),
+        banner = COALESCE(banner, banner_url),
         visibility = COALESCE(visibility, 'members_only')
   `);
   await pool.query("ALTER TABLE events MODIFY COLUMN event_type ENUM('camp', 'workshop', 'awareness', 'conference', 'research', 'meeting', 'training', 'other') NOT NULL DEFAULT 'other'");
+  await pool.query("ALTER TABLE events MODIFY COLUMN status ENUM('draft', 'published', 'upcoming', 'ongoing', 'completed', 'cancelled', 'archived') NOT NULL DEFAULT 'draft'");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS event_participants (
@@ -960,7 +1004,7 @@ async function initDatabase() {
       volunteer_id INT UNSIGNED NOT NULL,
       role VARCHAR(140) NULL,
       attendance_status ENUM('registered', 'attended', 'absent') NOT NULL DEFAULT 'registered',
-      participation_status ENUM('registered', 'participated', 'completed', 'cancelled') NOT NULL DEFAULT 'registered',
+      participation_status ENUM('pending', 'approved', 'rejected', 'registered', 'participated', 'completed', 'cancelled') NOT NULL DEFAULT 'registered',
       joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       completed_at TIMESTAMP NULL,
       added_by INT UNSIGNED NULL,
@@ -982,12 +1026,14 @@ async function initDatabase() {
   await ensureColumn(
     "event_participants",
     "participation_status",
-    "ENUM('registered', 'participated', 'completed', 'cancelled') NOT NULL DEFAULT 'registered'",
+    "ENUM('pending', 'approved', 'rejected', 'registered', 'participated', 'completed', 'cancelled') NOT NULL DEFAULT 'registered'",
   );
+  await pool.query("ALTER TABLE event_participants MODIFY COLUMN participation_status ENUM('pending', 'approved', 'rejected', 'registered', 'participated', 'completed', 'cancelled') NOT NULL DEFAULT 'registered'");
   await ensureColumn("event_participants", "completed_at", "TIMESTAMP NULL");
   await pool.query(`
     UPDATE event_participants
     SET participation_status = CASE
+      WHEN participation_status IN ('pending', 'approved', 'rejected', 'registered', 'participated', 'completed', 'cancelled') THEN participation_status
       WHEN attendance_status = 'attended' THEN 'participated'
       WHEN attendance_status = 'absent' THEN 'cancelled'
       ELSE COALESCE(participation_status, 'registered')
@@ -1036,6 +1082,7 @@ async function initDatabase() {
       footer_text VARCHAR(500) NULL,
       signature_name VARCHAR(180) NULL,
       signature_designation VARCHAR(180) NULL,
+      field_config JSON NULL,
       status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft',
       is_default TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1044,6 +1091,7 @@ async function initDatabase() {
       KEY certificate_templates_lookup (certificate_type, status, is_default)
     )
   `);
+  await ensureColumn("certificate_templates", "field_config", "JSON NULL");
 
   const certificateTemplateSeeds = [
     ["Membership Certificate", "membership", "Maai Membership Certificate", "This certifies that {{full_name}} is a verified member of Maai organisation.\nMembership: {{membership_number}}\nCertificate ID: {{certificate_id}}", "Issued by Maai organisation.", "Maai Team", "Membership Cell", 1],
@@ -1087,6 +1135,7 @@ async function initDatabase() {
       logo_url TEXT NULL,
       header_text VARCHAR(220) NULL,
       footer_text VARCHAR(500) NULL,
+      field_config JSON NULL,
       status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft',
       is_default TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1095,6 +1144,18 @@ async function initDatabase() {
       KEY id_card_templates_status_lookup (status, is_default, created_at)
     )
   `);
+  await ensureColumn("id_card_templates", "field_config", "JSON NULL");
+
+  const defaultIdCardFieldConfig = {
+    full_name: { enabled: true, x: 96, y: 170, width: 640, height: 54, fontSize: 34, color: "#0f172a", side: "front" },
+    membership_number: { enabled: true, x: 96, y: 285, width: 420, height: 40, fontSize: 24, color: "#0f172a", side: "front" },
+    college: { enabled: true, x: 96, y: 435, width: 620, height: 36, fontSize: 22, color: "#0f172a", side: "front" },
+    role: { enabled: true, x: 96, y: 345, width: 320, height: 34, fontSize: 22, color: "#0f172a", side: "front" },
+    status: { enabled: true, x: 96, y: 390, width: 320, height: 34, fontSize: 22, color: "#0f766e", side: "front" },
+    verification_code: { enabled: true, x: 96, y: 520, width: 420, height: 34, fontSize: 20, color: "#0f172a", side: "front" },
+    barcode: { enabled: true, x: 96, y: 600, width: 260, height: 46, fontSize: 18, color: "#000000", side: "front", type: "barcode" },
+    qr: { enabled: true, x: 900, y: 245, width: 154, height: 154, fontSize: 18, color: "#000000", side: "back", type: "qr" },
+  };
 
   await pool.query(`
     INSERT INTO id_card_templates
@@ -1104,6 +1165,9 @@ async function initDatabase() {
       SELECT 1 FROM id_card_templates WHERE name = 'Maai Membership Card' LIMIT 1
     )
   `);
+  await pool.query("UPDATE id_card_templates SET field_config = ? WHERE field_config IS NULL", [
+    JSON.stringify(defaultIdCardFieldConfig),
+  ]);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS volunteer_ids (

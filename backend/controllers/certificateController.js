@@ -85,7 +85,7 @@ async function loadCertificateForUser(id, user) {
 
   const [rows] = await pool.query(
     `
-      SELECT ec.*, e.title, e.event_date, e.event_type, e.location, e.certificate_template_id, v.full_name, v.role, v.membership_status, vi.membership_number
+      SELECT ec.*, e.title, e.event_date, e.event_type, e.location, e.certificate_template_id, v.full_name, v.college, v.role, v.membership_status, vi.membership_number
       FROM event_certificates ec
       LEFT JOIN events e ON e.id = ec.event_id
       INNER JOIN volunteers v ON v.id = ec.volunteer_id
@@ -147,7 +147,10 @@ async function sendCertificatePdf(req, res, disposition = "inline") {
     full_name: certificate.full_name,
     event_name: certificate.title || "Maai organisation",
     date: certificate.event_date || certificate.issued_at || "Not specified",
+    issue_date: certificate.issued_at || certificate.claimed_at || "Not specified",
     certificate_id: certificate.verification_code,
+    verification_code: certificate.verification_code,
+    college: certificate.college || "",
     membership_number: certificate.membership_number || "",
     role: certificate.role || "volunteer",
   };

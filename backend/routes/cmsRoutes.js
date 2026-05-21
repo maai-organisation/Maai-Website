@@ -632,9 +632,22 @@ function mapEmailTemplate(row) {
 function normalizeIdTemplate(input = {}) {
   const name = cleanString(input.name || input.title, 180);
   const status = statuses.has(input.status) ? input.status : "draft";
+  const fieldConfigInput = input.fieldConfig ?? input.field_config ?? null;
+  let fieldConfig = null;
   const errors = {};
 
   if (!name) errors.name = "Template name is required.";
+  if (fieldConfigInput) {
+    try {
+      fieldConfig = typeof fieldConfigInput === "string" ? JSON.parse(fieldConfigInput) : fieldConfigInput;
+      if (!fieldConfig || typeof fieldConfig !== "object" || Array.isArray(fieldConfig)) {
+        fieldConfig = null;
+        errors.fieldConfig = "Field config must be a JSON object.";
+      }
+    } catch {
+      errors.fieldConfig = "Field config must be valid JSON.";
+    }
+  }
 
   return {
     data: {
@@ -645,6 +658,7 @@ function normalizeIdTemplate(input = {}) {
       logoUrl: cleanOptionalUrl(input.logoUrl || input.logo_url, "Logo URL"),
       headerText: cleanString(input.headerText || input.header_text, 220) || null,
       footerText: cleanString(input.footerText || input.footer_text, 500) || null,
+      fieldConfig,
       status,
       isDefault: Boolean(input.isDefault ?? input.is_default),
     },
@@ -653,6 +667,14 @@ function normalizeIdTemplate(input = {}) {
 }
 
 function mapIdTemplate(row) {
+  let fieldConfig = row.field_config || null;
+  if (typeof fieldConfig === "string") {
+    try {
+      fieldConfig = JSON.parse(fieldConfig || "{}");
+    } catch {
+      fieldConfig = null;
+    }
+  }
   return {
     id: row.id,
     name: row.name,
@@ -669,6 +691,8 @@ function mapIdTemplate(row) {
     headerText: row.header_text,
     footer_text: row.footer_text,
     footerText: row.footer_text,
+    field_config: fieldConfig,
+    fieldConfig,
     status: row.status,
     is_default: Boolean(row.is_default),
     isDefault: Boolean(row.is_default),
@@ -685,8 +709,21 @@ function normalizeCertificateTemplate(input = {}) {
   const name = cleanString(input.name || input.title, 180);
   const certificateType = certificateTypes.has(input.certificateType || input.certificate_type) ? input.certificateType || input.certificate_type : "other";
   const status = statuses.has(input.status) ? input.status : "draft";
+  const fieldConfigInput = input.fieldConfig ?? input.field_config ?? null;
+  let fieldConfig = null;
   const errors = {};
   if (!name) errors.name = "Template name is required.";
+  if (fieldConfigInput) {
+    try {
+      fieldConfig = typeof fieldConfigInput === "string" ? JSON.parse(fieldConfigInput) : fieldConfigInput;
+      if (!fieldConfig || typeof fieldConfig !== "object" || Array.isArray(fieldConfig)) {
+        fieldConfig = null;
+        errors.fieldConfig = "Field config must be a JSON object.";
+      }
+    } catch {
+      errors.fieldConfig = "Field config must be valid JSON.";
+    }
+  }
 
   return {
     data: {
@@ -699,6 +736,7 @@ function normalizeCertificateTemplate(input = {}) {
       footerText: cleanString(input.footerText || input.footer_text, 500) || null,
       signatureName: cleanString(input.signatureName || input.signature_name, 180) || null,
       signatureDesignation: cleanString(input.signatureDesignation || input.signature_designation, 180) || null,
+      fieldConfig,
       status,
       isDefault: Boolean(input.isDefault ?? input.is_default),
     },
@@ -707,6 +745,14 @@ function normalizeCertificateTemplate(input = {}) {
 }
 
 function mapCertificateTemplate(row) {
+  let fieldConfig = row.field_config || null;
+  if (typeof fieldConfig === "string") {
+    try {
+      fieldConfig = JSON.parse(fieldConfig || "{}");
+    } catch {
+      fieldConfig = null;
+    }
+  }
   return {
     id: row.id,
     name: row.name,
@@ -727,6 +773,8 @@ function mapCertificateTemplate(row) {
     signatureName: row.signature_name,
     signature_designation: row.signature_designation,
     signatureDesignation: row.signature_designation,
+    field_config: fieldConfig,
+    fieldConfig,
     status: row.status,
     is_default: Boolean(row.is_default),
     isDefault: Boolean(row.is_default),
@@ -2395,8 +2443,8 @@ router.post(
       const [result] = await connection.query(
         `
           INSERT INTO id_card_templates
-            (name, template_type, front_background_url, back_background_url, logo_url, header_text, footer_text, status, is_default)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (name, template_type, front_background_url, back_background_url, logo_url, header_text, footer_text, field_config, status, is_default)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           data.name,
@@ -2406,6 +2454,7 @@ router.post(
           data.logoUrl,
           data.headerText,
           data.footerText,
+          data.fieldConfig ? JSON.stringify(data.fieldConfig) : null,
           data.status,
           data.isDefault ? 1 : 0,
         ],
@@ -2446,6 +2495,7 @@ router.put(
               logo_url = ?,
               header_text = ?,
               footer_text = ?,
+              field_config = ?,
               status = ?,
               is_default = ?
           WHERE id = ?
@@ -2458,6 +2508,7 @@ router.put(
           data.logoUrl,
           data.headerText,
           data.footerText,
+          data.fieldConfig ? JSON.stringify(data.fieldConfig) : null,
           data.status,
           data.isDefault ? 1 : 0,
           req.params.id,
@@ -2546,8 +2597,8 @@ async function saveCertificateTemplate(req, res, id = null) {
     let templateId = id;
     if (id) {
       const [result] = await connection.query(
-        `UPDATE certificate_templates SET name=?, certificate_type=?, background_url=?, logo_url=?, header_text=?, body_template=?, footer_text=?, signature_name=?, signature_designation=?, status=?, is_default=? WHERE id=?`,
-        [data.name, data.certificateType, data.backgroundUrl, data.logoUrl, data.headerText, data.bodyTemplate, data.footerText, data.signatureName, data.signatureDesignation, data.status, data.isDefault ? 1 : 0, id],
+        `UPDATE certificate_templates SET name=?, certificate_type=?, background_url=?, logo_url=?, header_text=?, body_template=?, footer_text=?, signature_name=?, signature_designation=?, field_config=?, status=?, is_default=? WHERE id=?`,
+        [data.name, data.certificateType, data.backgroundUrl, data.logoUrl, data.headerText, data.bodyTemplate, data.footerText, data.signatureName, data.signatureDesignation, data.fieldConfig ? JSON.stringify(data.fieldConfig) : null, data.status, data.isDefault ? 1 : 0, id],
       );
       if (result.affectedRows === 0) {
         await connection.rollback();
@@ -2555,8 +2606,8 @@ async function saveCertificateTemplate(req, res, id = null) {
       }
     } else {
       const [result] = await connection.query(
-        `INSERT INTO certificate_templates (name, certificate_type, background_url, logo_url, header_text, body_template, footer_text, signature_name, signature_designation, status, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [data.name, data.certificateType, data.backgroundUrl, data.logoUrl, data.headerText, data.bodyTemplate, data.footerText, data.signatureName, data.signatureDesignation, data.status, data.isDefault ? 1 : 0],
+        `INSERT INTO certificate_templates (name, certificate_type, background_url, logo_url, header_text, body_template, footer_text, signature_name, signature_designation, field_config, status, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [data.name, data.certificateType, data.backgroundUrl, data.logoUrl, data.headerText, data.bodyTemplate, data.footerText, data.signatureName, data.signatureDesignation, data.fieldConfig ? JSON.stringify(data.fieldConfig) : null, data.status, data.isDefault ? 1 : 0],
       );
       templateId = result.insertId;
     }

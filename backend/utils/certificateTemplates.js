@@ -1,4 +1,9 @@
+const path = require("path");
+const { spawnSync } = require("child_process");
 const { pool } = require("../config/db");
+
+const FRONT_TEMPLATE_URL = "https://i.postimg.cc/CLPrycq0/Front-Side.png";
+const BACK_TEMPLATE_URL = "https://i.postimg.cc/prVC4jVY/Back-Side.png";
 
 function escapePdfText(value) {
   return String(value || "")
@@ -11,7 +16,7 @@ function fillTemplate(value, variables = {}) {
   return String(value || "").replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key) => variables[key] || "");
 }
 
-function createTemplatePdf(template, variables) {
+function createLegacyTemplatePdf(template, variables) {
   const body = fillTemplate(template.body_template, variables)
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -60,6 +65,59 @@ function createTemplatePdf(template, variables) {
   });
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
   return Buffer.from(pdf);
+}
+
+function parseFieldConfig(template) {
+  if (!template?.field_config) return null;
+  if (typeof template.field_config === "object") return template.field_config;
+  try {
+    return JSON.parse(template.field_config);
+  } catch {
+    return null;
+  }
+}
+
+function createImageTemplatePdf(template, variables, fieldConfig) {
+  const rendererPath = path.join(__dirname, "renderCertificate.py");
+  const payload = {
+    frontTemplateUrl: FRONT_TEMPLATE_URL,
+    backTemplateUrl: BACK_TEMPLATE_URL,
+    frontTemplatePath: path.join(__dirname, "..", "assets", "certificates", "front.png"),
+    backTemplatePath: path.join(__dirname, "..", "assets", "certificates", "back.png"),
+    variables,
+    fieldConfig,
+  };
+  const input = JSON.stringify(payload);
+  let result = spawnSync("python", [rendererPath], {
+    input,
+    encoding: null,
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (result.error?.code === "ENOENT") {
+    result = spawnSync("python3", [rendererPath], {
+      input,
+      encoding: null,
+      maxBuffer: 20 * 1024 * 1024,
+    });
+  }
+
+  if (result.status !== 0 || !result.stdout?.length) {
+    const error = result.stderr?.toString("utf8").trim();
+    if (error) console.warn(`Certificate image renderer unavailable: ${error}`);
+    return null;
+  }
+
+  return result.stdout;
+}
+
+function createTemplatePdf(template, variables) {
+  const fieldConfig = parseFieldConfig(template);
+  if (fieldConfig && Object.keys(fieldConfig).length > 0) {
+    const renderedPdf = createImageTemplatePdf(template, variables, fieldConfig);
+    if (renderedPdf) return renderedPdf;
+  }
+
+  return createLegacyTemplatePdf(template, variables);
 }
 
 async function loadCertificateTemplate(certificate) {

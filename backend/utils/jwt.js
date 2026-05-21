@@ -1,7 +1,13 @@
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
-const JWT_SECRET = process.env.JWT_SECRET || "maai_dev_change_this_secret";
+const hasJwtSecret = Boolean(process.env.JWT_SECRET);
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString("hex");
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+if (!hasJwtSecret) {
+  console.warn("JWT_SECRET is not set. Generated a temporary development secret for this process.");
+}
 
 function signAuthToken(user) {
   return jwt.sign(

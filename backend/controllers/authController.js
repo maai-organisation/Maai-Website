@@ -108,10 +108,6 @@ async function register(req, res) {
   const { data, errors } = validateVolunteerRegistration(req.body);
   const membershipSettings = await getMembershipSettings();
 
-  if (membershipSettings.payments_enabled && !data.transactionId) {
-    errors.transactionId = "Transaction ID is required.";
-  }
-
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
@@ -131,7 +127,7 @@ async function register(req, res) {
 
   const passwordHash = await bcrypt.hash(data.password, PASSWORD_SALT_ROUNDS);
   const paymentStatus = membershipSettings.payments_enabled ? "pending" : "free";
-  const transactionId = membershipSettings.payments_enabled ? data.transactionId : "FREE";
+  const transactionId = membershipSettings.payments_enabled ? data.transactionId || "PENDING" : "FREE";
 
   try {
     const [result] = await pool.query(

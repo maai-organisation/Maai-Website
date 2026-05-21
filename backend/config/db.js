@@ -1,27 +1,33 @@
-const mysql = require("mysql2/promise");
 require("dotenv").config();
+const mysql = require("mysql2/promise");
 
-const databaseUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
+const required = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
+const missing = required.filter((key) => !process.env[key]);
 
-const pool = databaseUrl
-  ? mysql.createPool({
-      uri: databaseUrl,
-      waitForConnections: true,
-      connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
-      queueLimit: 0,
-      ssl: process.env.DB_SSL === "false" ? undefined : { rejectUnauthorized: false },
-    })
-  : mysql.createPool({
-      host: process.env.DB_HOST || "localhost",
-      port: Number(process.env.DB_PORT || 3306),
-      user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "maai_db",
-      waitForConnections: true,
-      connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
-      queueLimit: 0,
-      ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
-    });
+if (missing.length > 0) {
+  console.error(`Missing required database environment variables: ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+console.log({
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: process.env.DB_PORT,
+  DB_NAME: process.env.DB_NAME,
+});
+
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  queueLimit: 0,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
 
 async function testDatabaseConnection() {
   const connection = await pool.getConnection();
@@ -33,7 +39,7 @@ async function testDatabaseConnection() {
   }
 }
 
-module.exports = {
-  pool,
-  testDatabaseConnection,
-};
+pool.pool = pool;
+pool.testDatabaseConnection = testDatabaseConnection;
+
+module.exports = pool;

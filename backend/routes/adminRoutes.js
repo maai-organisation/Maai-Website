@@ -6,7 +6,7 @@ const { authorizeRoles } = require("../middleware/roleMiddleware");
 const { getMembershipSettings } = require("../utils/membershipSettings");
 const { ensureVolunteerId } = require("../utils/idCards");
 const { createNotification } = require("../utils/notifications");
-const { sendTemplateEmail } = require("../utils/emailService");
+const { sendEmail } = require("../utils/emailService");
 
 const router = express.Router();
 
@@ -55,6 +55,10 @@ function mapAnnouncement(row) {
     expireAt: row.expire_at,
     expire_at: row.expire_at,
     status: row.status,
+    eventId: row.event_id,
+    event_id: row.event_id,
+    unreadCount: Number(row.unread_count || 0),
+    unread_count: Number(row.unread_count || 0),
     createdBy: row.created_by,
     created_by: row.created_by,
     createdByName: row.created_by_name,
@@ -67,7 +71,7 @@ function mapAnnouncement(row) {
 }
 
 const announcementTypes = new Set(["general", "membership", "event", "camp", "certificate", "system"]);
-const announcementAudiences = new Set(["volunteers", "ngos", "all", "admins"]);
+const announcementAudiences = new Set(["volunteers", "ngos", "all", "admins", "event_participants"]);
 const announcementPriorities = new Set(["info", "important", "urgent"]);
 const announcementStatuses = new Set(["draft", "published", "archived"]);
 
@@ -80,12 +84,14 @@ function normalizeAnnouncement(input = {}) {
   const audience = announcementAudiences.has(input.audience) ? input.audience : "all";
   const priority = announcementPriorities.has(input.priority) ? input.priority : "info";
   const status = announcementStatuses.has(input.status) ? input.status : "draft";
+  const eventId = Number(input.eventId || input.event_id || 0) || null;
   const publishAt = cleanString(input.publishAt || input.publish_at, 40) || null;
   const expireAt = cleanString(input.expireAt || input.expire_at, 40) || null;
   const errors = {};
 
   if (!title) errors.title = "Title is required.";
   if (!message) errors.message = "Message is required.";
+  if (audience === "event_participants" && !eventId) errors.eventId = "Select an event for participant targeting.";
 
   return {
     data: {
@@ -95,6 +101,7 @@ function normalizeAnnouncement(input = {}) {
       audience,
       priority,
       sendEmail: Boolean(input.sendEmail ?? input.send_email),
+      eventId,
       publishAt,
       expireAt,
       status,
@@ -679,7 +686,16 @@ router.get(
     const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
     const [rows] = await pool.query(
       `
-        SELECT a.*, v.full_name AS created_by_name
+        SELECT
+          a.*,
+          v.full_name AS created_by_name,
+          (
+            SELECT COUNT(*)
+            FROM notifications n
+            WHERE n.notification_type = 'announcement'
+              AND n.title = a.title
+              AND n.status = 'unread'
+          ) AS unread_count
         FROM announcements a
         LEFT JOIN volunteers v ON v.id = a.created_by
         ${where}
@@ -720,9 +736,27 @@ async function loadAnnouncementRecipients(audience) {
   return { volunteers, ngos, admins };
 }
 
+async function loadEventParticipantRecipients(eventId) {
+  if (!eventId) return { volunteers: [], ngos: [], admins: [] };
+  const [volunteers] = await pool.query(
+    `
+      SELECT DISTINCT v.id, v.full_name, v.email, v.membership_status
+      FROM event_participants ep
+      INNER JOIN volunteers v ON v.id = ep.volunteer_id
+      WHERE ep.event_id = ?
+        AND v.role = 'volunteer'
+    `,
+    [eventId],
+  );
+  return { volunteers, ngos: [], admins: [] };
+}
+
 async function publishAnnouncement(announcement, actorId) {
   if (!shouldPublishNow(announcement)) return { notificationsCreated: 0, emailsQueued: 0 };
-  const recipients = await loadAnnouncementRecipients(announcement.audience);
+  const recipients =
+    announcement.audience === "event_participants"
+      ? await loadEventParticipantRecipients(announcement.event_id)
+      : await loadAnnouncementRecipients(announcement.audience);
   let notificationsCreated = 0;
   let emailsQueued = 0;
 
@@ -737,18 +771,11 @@ async function publishAnnouncement(announcement, actorId) {
     });
     notificationsCreated += 1;
     if (announcement.send_email && volunteer.email) {
-      await sendTemplateEmail({
-        emailType: "announcement",
+      await sendEmail({
         to: volunteer.email,
-        variables: {
-          full_name: volunteer.full_name,
-          event_name: announcement.title,
-          certificate_name: "",
-          membership_status: volunteer.membership_status,
-          camp_name: announcement.title,
-          ngo_name: "",
-          verification_code: "",
-        },
+        subject: announcement.title,
+        body: announcement.message,
+        emailType: "announcement",
       });
       emailsQueued += 1;
     }
@@ -770,18 +797,11 @@ async function publishAnnouncement(announcement, actorId) {
     ]);
     notificationsCreated += 1;
     if (announcement.send_email && ngo.email) {
-      await sendTemplateEmail({
-        emailType: "announcement",
+      await sendEmail({
         to: ngo.email,
-        variables: {
-          full_name: ngo.organization_name,
-          event_name: announcement.title,
-          certificate_name: "",
-          membership_status: ngo.membership_status,
-          camp_name: announcement.title,
-          ngo_name: ngo.organization_name,
-          verification_code: "",
-        },
+        subject: announcement.title,
+        body: announcement.message,
+        emailType: "announcement",
       });
       emailsQueued += 1;
     }
@@ -798,18 +818,11 @@ async function publishAnnouncement(announcement, actorId) {
     });
     notificationsCreated += 1;
     if (announcement.send_email && admin.email) {
-      await sendTemplateEmail({
-        emailType: "announcement",
+      await sendEmail({
         to: admin.email,
-        variables: {
-          full_name: admin.full_name,
-          event_name: announcement.title,
-          certificate_name: "",
-          membership_status: admin.role,
-          camp_name: announcement.title,
-          ngo_name: "",
-          verification_code: "",
-        },
+        subject: announcement.title,
+        body: announcement.message,
+        emailType: "announcement",
       });
       emailsQueued += 1;
     }
@@ -820,6 +833,44 @@ async function publishAnnouncement(announcement, actorId) {
   }
   return { notificationsCreated, emailsQueued };
 }
+
+let scheduledAnnouncementRunActive = false;
+
+async function processScheduledAnnouncements() {
+  if (scheduledAnnouncementRunActive) return;
+  scheduledAnnouncementRunActive = true;
+  try {
+    const [rows] = await pool.query(
+      `
+        SELECT *
+        FROM announcements
+        WHERE status = 'draft'
+          AND publish_at IS NOT NULL
+          AND publish_at <= NOW()
+        ORDER BY publish_at ASC
+        LIMIT 25
+      `,
+    );
+
+    for (const announcement of rows) {
+      const [result] = await pool.query(
+        "UPDATE announcements SET status = 'published' WHERE id = ? AND status = 'draft'",
+        [announcement.id],
+      );
+      if (result.affectedRows === 0) continue;
+      const published = await loadAnnouncement(announcement.id);
+      const publishMeta = await publishAnnouncement(published, null);
+      await logAudit(null, "announcement.scheduled_publish", "announcement", announcement.id, publishMeta);
+    }
+  } catch (error) {
+    console.warn(`Scheduled announcement publish failed: ${error.message}`);
+  } finally {
+    scheduledAnnouncementRunActive = false;
+  }
+}
+
+setTimeout(processScheduledAnnouncements, 10 * 1000).unref?.();
+setInterval(processScheduledAnnouncements, 60 * 1000).unref?.();
 
 router.post(
   "/announcements",
@@ -833,8 +884,8 @@ router.post(
     const [result] = await pool.query(
       `
         INSERT INTO announcements
-          (title, message, announcement_type, audience, priority, send_email, publish_at, expire_at, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (title, message, announcement_type, audience, priority, send_email, event_id, publish_at, expire_at, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.title,
@@ -843,6 +894,7 @@ router.post(
         data.audience,
         data.priority,
         data.sendEmail ? 1 : 0,
+        data.eventId,
         data.publishAt,
         data.expireAt,
         data.status,
@@ -894,6 +946,7 @@ router.put(
             audience = ?,
             priority = ?,
             send_email = ?,
+            event_id = ?,
             publish_at = ?,
             expire_at = ?,
             status = ?
@@ -906,6 +959,7 @@ router.put(
         data.audience,
         data.priority,
         data.sendEmail ? 1 : 0,
+        data.eventId,
         data.publishAt,
         data.expireAt,
         data.status,
