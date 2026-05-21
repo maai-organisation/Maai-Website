@@ -37,6 +37,25 @@
 5. Set `CORS_ORIGIN` to the deployed frontend origin.
 6. Deploy and verify `/api/health`.
 
+## Health Monitoring
+
+Railway health endpoint:
+
+```text
+GET /health
+```
+
+Expected response includes:
+
+```json
+{
+  "status": "ok",
+  "database": "connected"
+}
+```
+
+Use this endpoint to monitor both backend uptime and Aiven MySQL connectivity.
+
 ## GitHub Pages Setup
 
 1. Set `VITE_API_URL` in the frontend build environment to the Railway backend URL.

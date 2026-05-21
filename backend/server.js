@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const { pool } = require("./config/db");
+const { version } = require("./package.json");
 const initializeDatabase = require("./config/initDatabase");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -14,6 +15,7 @@ const eventRoutes = require("./routes/eventRoutes");
 const emailRoutes = require("./routes/emailRoutes");
 const idCardRoutes = require("./routes/idCardRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const { startDbHeartbeat } = require("./utils/dbHeartbeat");
 const { sendTemplateEmail } = require("./utils/emailService");
 const { requireAuth } = require("./middleware/authMiddleware");
 const { authorizeRoles } = require("./middleware/roleMiddleware");
@@ -25,6 +27,14 @@ const configuredOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL |
   .map((origin) => origin.trim())
   .filter(Boolean);
 const allowUnconfiguredCors = process.env.NODE_ENV !== "production" && configuredOrigins.length === 0;
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED_REJECTION]", reason?.message || reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[UNCAUGHT_EXCEPTION]", error?.message || error);
+});
 
 app.use(
   cors({
@@ -40,6 +50,30 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
+
+// Railway health endpoint: GET /health
+// Purpose: monitor backend availability and current Aiven DB state.
+app.get("/health", async (_req, res) => {
+  let dbStatus = "disconnected";
+
+  try {
+    await pool.query("SELECT 1");
+    dbStatus = "connected";
+  } catch (err) {
+    dbStatus = "error";
+  }
+
+  res.status(200).json({
+    status: "ok",
+    service: "Maai organisation backend",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+    environment: process.env.NODE_ENV,
+    version,
+  });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/announcements", requireDatabase, announcementRoutes);
 app.use("/api/camps", campRoutes);
@@ -2520,13 +2554,28 @@ app.use((error, req, res, next) => {
   });
 });
 
-initializeDatabase()
-  .then(() => {
+async function validateDatabaseStartup() {
+  await pool.query("SELECT 1");
+  console.log("DB connected");
+  console.log({
+    DB_HOST: process.env.DB_HOST,
+    DB_NAME: process.env.DB_NAME,
+  });
+}
+
+async function startServer() {
+  try {
+    await validateDatabaseStartup();
+    await initializeDatabase();
+    startDbHeartbeat(pool);
+
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error("Failed to initialize database", error);
     process.exit(1);
-  });
+  }
+}
+
+startServer();

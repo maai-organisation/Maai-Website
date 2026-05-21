@@ -29,6 +29,22 @@ const pool = mysql.createPool({
   },
 });
 
+if (typeof pool.on === "function") {
+  pool.on("connection", (connection) => {
+    console.log("[DB_POOL] connection created");
+
+    if (typeof connection.on === "function") {
+      connection.on("error", (error) => {
+        console.error("[DB_POOL_CONNECTION_ERROR]", error.message);
+      });
+    }
+  });
+
+  pool.on("enqueue", () => {
+    console.log("[DB_POOL] waiting for available connection");
+  });
+}
+
 async function testDatabaseConnection() {
   const connection = await pool.getConnection();
   try {
