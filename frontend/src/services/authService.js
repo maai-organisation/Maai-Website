@@ -45,31 +45,31 @@ export function getRoleRedirect(user = getStoredUser()) {
 }
 
 export async function registerVolunteer(payload) {
-  const response = await apiClient.post("/api/auth/register", payload);
+  const response = await apiClient.post("/auth/register", payload);
   return persistSession(response.data);
 }
 
 export async function registerNgo(payload) {
-  const response = await apiClient.post("/api/auth/ngo/register", payload);
+  const response = await apiClient.post("/auth/ngo/register", payload);
   return persistSession(response.data);
 }
 
 export async function getMembershipSettings() {
-  const response = await apiClient.get("/api/auth/membership-settings");
+  const response = await apiClient.get("/auth/membership-settings");
   return response.data?.data;
 }
 
 export async function loginVolunteer(payload) {
-  const response = await apiClient.post("/api/auth/login", payload);
+  const response = await apiClient.post("/auth/login", payload);
   return persistSession(response.data);
 }
 
 export async function loginNgo(payload) {
-  const response = await apiClient.post("/api/auth/ngo/login", payload);
+  const response = await apiClient.post("/auth/ngo/login", payload);
   return persistSession(response.data);
 }
 
 export async function getCurrentUser() {
-  const response = await apiClient.get("/api/auth/me");
+  const response = await apiClient.get("/auth/me");
   return response.data?.data?.user;
 }

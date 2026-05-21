@@ -22,11 +22,13 @@ const { authorizeRoles } = require("./middleware/roleMiddleware");
 const { auditAdminAction } = require("./middleware/auditMiddleware");
 
 const app = express();
-const configuredOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "")
+const netlifyFrontendOrigin = "https://boisterous-tulumba-38092d.netlify.app";
+const envCorsOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const allowUnconfiguredCors = process.env.NODE_ENV !== "production" && configuredOrigins.length === 0;
+const configuredOrigins = [...new Set([netlifyFrontendOrigin, ...envCorsOrigins])];
+const allowUnconfiguredCors = process.env.NODE_ENV !== "production" && envCorsOrigins.length === 0;
 
 process.on("unhandledRejection", (reason) => {
   console.error("[UNHANDLED_REJECTION]", reason?.message || reason);
@@ -45,6 +47,8 @@ app.use(
       }
       callback(new Error("Not allowed by CORS"));
     },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
