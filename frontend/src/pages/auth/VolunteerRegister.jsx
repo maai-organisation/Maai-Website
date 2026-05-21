@@ -230,6 +230,10 @@ export default function VolunteerRegister() {
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    console.log("Current step:", activeStep + 1);
+  }, [activeStep]);
+
   function updateField(e) {
     const { name, value } = e.target;
     setForm((c) => ({ ...c, [name]: value }));
@@ -238,6 +242,7 @@ export default function VolunteerRegister() {
   }
 
   function continueStep() {
+    console.log("Current step:", activeStep + 1);
     const nextErrors = validateStep(form, activeStep);
     if (Object.keys(nextErrors).length > 0) { setErrors(nextErrors); return; }
     setErrors({});
@@ -252,6 +257,12 @@ export default function VolunteerRegister() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    console.log("Current step:", activeStep + 1);
+    if (activeStep < steps.length - 1) {
+      continueStep();
+      return;
+    }
+
     const allErrors = steps.reduce((acc, _s, i) => ({ ...acc, ...validateStep(form, i) }), {});
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
@@ -449,7 +460,7 @@ export default function VolunteerRegister() {
                 opacity: isSubmitting ? 0.7 : 1,
                 boxShadow: "0 4px 14px rgba(6,182,212,0.35)", fontFamily: "inherit",
               }}>
-                {isSubmitting ? "Creating account..." : "Create Account"}
+                {isSubmitting ? "Registering..." : "Register"}
               </button>
             )}
           </div>

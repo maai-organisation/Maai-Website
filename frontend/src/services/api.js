@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:5000",
+  baseURL: import.meta.env.VITE_API_URL || "",
   timeout: 10000,
   headers: {
     Accept: "application/json",
@@ -175,6 +175,11 @@ export async function getAnnouncements() {
   return unwrapList(await apiClient.get("/api/announcements"));
 }
 
+export async function markAnnouncementRead(id) {
+  const response = await apiClient.post(`/api/announcements/${id}/read`);
+  return response.data?.data;
+}
+
 export async function getAdminMembershipSettings() {
   const response = await apiClient.get("/api/admin/membership-settings");
   return response.data?.data;
@@ -315,7 +320,12 @@ export async function markAllNotificationsRead() {
 }
 
 export async function getEvents(params = {}) {
-  return unwrapList(await apiClient.get("/api/events", { params }));
+  try {
+    return unwrapList(await apiClient.get("/api/events", { params }));
+  } catch (error) {
+    console.error("Unable to load events", error);
+    return [];
+  }
 }
 
 export async function getEvent(id) {
@@ -349,6 +359,11 @@ export async function getEventVolunteers() {
 
 export async function getMyEvents() {
   return unwrapList(await apiClient.get("/api/events/my"));
+}
+
+export async function registerEvent(id) {
+  const response = await apiClient.post(`/api/events/${id}/register`);
+  return response.data?.data;
 }
 
 export async function getMyCamps(params = {}) {

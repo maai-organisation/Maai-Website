@@ -87,10 +87,6 @@ function validateSignupStep(form, stepIndex, membershipSettings = null) {
     if (!form.city.trim()) errors.city = "City is required.";
   }
 
-  if (stepIndex === 2 && membershipSettings?.paymentsEnabled && !form.transactionId.trim()) {
-    errors.transactionId = "Transaction ID is required.";
-  }
-
   return errors;
 }
 
@@ -255,6 +251,10 @@ export default function Auth() {
       .catch(() => setMembershipSettings({ paymentsEnabled: false }));
   }, []);
 
+  useEffect(() => {
+    console.log("Current step:", signupStep + 1);
+  }, [signupStep]);
+
   function setMode(nextMode) {
     setMessage("");
     navigate(`/auth?mode=${nextMode}`, { replace: false });
@@ -359,6 +359,7 @@ export default function Auth() {
   }
 
   function continueSignup() {
+    console.log("Current step:", signupStep + 1);
     const nextErrors = validateSignupStep(signupForm, signupStep, membershipSettings);
     if (Object.keys(nextErrors).length > 0) {
       setSignupErrors(nextErrors);
@@ -375,6 +376,12 @@ export default function Auth() {
 
   async function handleSignupSubmit(event) {
     event.preventDefault();
+    console.log("Current step:", signupStep + 1);
+    if (signupStep < signupSteps.length - 1) {
+      continueSignup();
+      return;
+    }
+
     const allErrors = signupSteps.reduce(
       (acc, _step, index) => ({ ...acc, ...validateSignupStep(signupForm, index, membershipSettings) }),
       {},
@@ -713,7 +720,7 @@ export default function Auth() {
                         whileHover={isSignupSubmitting ? undefined : { y: -2, scale: 1.02 }}
                         whileTap={isSignupSubmitting ? undefined : { scale: 0.98 }}
                       >
-                        {isSignupSubmitting ? "Creating..." : membershipSettings?.paymentsEnabled ? "Create account" : "Continue Registration"}
+                        {isSignupSubmitting ? "Registering..." : "Register"}
                       </motion.button>
                     )}
                   </div>

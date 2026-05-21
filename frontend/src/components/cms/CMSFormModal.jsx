@@ -1,7 +1,17 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import CMSImagePreview from "./CMSImagePreview";
 import CMSRichTextEditor from "./CMSRichTextEditor";
 import Icon from "../shared/Icon";
+
+const VisualTemplateEditor = lazy(() => import("./VisualTemplateEditor"));
+
+function TemplateEditorFallback() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm font-black text-slate-500">
+      Loading visual editor...
+    </div>
+  );
+}
 
 const initialForm = {
   title: "",
@@ -113,11 +123,21 @@ const careerInitialForm = {
 const idTemplateInitialForm = {
   name: "",
   templateType: "membership",
-  frontBackgroundUrl: "",
-  backBackgroundUrl: "",
+  frontBackgroundUrl: "https://i.postimg.cc/CLPrycq0/Front-Side.png",
+  backBackgroundUrl: "https://i.postimg.cc/prVC4jVY/Back-Side.png",
   logoUrl: "",
   headerText: "Maai Membership Card",
   footerText: "If found, please contact Maai organisation.",
+  fieldConfig: {
+    full_name: { enabled: true, x: 96, y: 170, width: 640, height: 54, fontSize: 34, color: "#0f172a", side: "front" },
+    membership_number: { enabled: true, x: 96, y: 285, width: 420, height: 40, fontSize: 24, color: "#0f172a", side: "front" },
+    college: { enabled: true, x: 96, y: 435, width: 620, height: 36, fontSize: 22, color: "#0f172a", side: "front" },
+    role: { enabled: true, x: 96, y: 345, width: 320, height: 34, fontSize: 22, color: "#0f172a", side: "front" },
+    status: { enabled: true, x: 96, y: 390, width: 320, height: 34, fontSize: 22, color: "#0f766e", side: "front" },
+    verification_code: { enabled: true, x: 96, y: 520, width: 420, height: 34, fontSize: 20, color: "#0f172a", side: "front" },
+    barcode: { enabled: true, x: 96, y: 600, width: 260, height: 46, fontSize: 18, color: "#000000", side: "front", type: "barcode" },
+    qr: { enabled: true, x: 900, y: 245, width: 154, height: 154, fontSize: 18, color: "#000000", side: "back", type: "qr" },
+  },
   isDefault: false,
   status: "draft",
 };
@@ -125,13 +145,23 @@ const idTemplateInitialForm = {
 const certificateTemplateInitialForm = {
   name: "",
   certificateType: "event",
-  backgroundUrl: "",
-  logoUrl: "",
+  backgroundUrl: "https://i.postimg.cc/CLPrycq0/Front-Side.png",
+  logoUrl: "https://i.postimg.cc/prVC4jVY/Back-Side.png",
   headerText: "Certificate",
   bodyTemplate: "This certifies that {{full_name}} participated in {{event_name}}.\nCertificate ID: {{certificate_id}}",
   footerText: "Issued by Maai organisation.",
   signatureName: "",
   signatureDesignation: "",
+  fieldConfig: {
+    full_name: { enabled: true, x: 100, y: 360, width: 420, height: 44, fontSize: 26, color: "#000000", side: "front" },
+    membership_number: { enabled: true, x: 100, y: 420, width: 360, height: 38, fontSize: 22, color: "#000000", side: "front" },
+    college: { enabled: true, x: 100, y: 480, width: 420, height: 38, fontSize: 22, color: "#000000", side: "front" },
+    role: { enabled: true, x: 100, y: 540, width: 300, height: 36, fontSize: 20, color: "#000000", side: "front" },
+    verification_code: { enabled: true, x: 100, y: 590, width: 360, height: 34, fontSize: 20, color: "#000000", side: "front" },
+    issue_date: { enabled: true, x: 100, y: 635, width: 260, height: 34, fontSize: 18, color: "#000000", side: "front" },
+    barcode: { enabled: true, x: 100, y: 690, width: 260, height: 44, fontSize: 18, color: "#000000", side: "front", type: "barcode" },
+    qr: { enabled: true, x: 930, y: 610, width: 96, height: 96, fontSize: 18, color: "#000000", side: "front", type: "qr" },
+  },
   isDefault: false,
   status: "draft",
 };
@@ -164,6 +194,8 @@ const testimonialCategories = ["volunteer", "mentor", "ngo", "partner", "benefic
 const careerRoleTypes = ["volunteer", "internship", "leadership", "research", "operations", "design", "it", "community", "other"];
 const careerVisibilities = ["public", "members_only", "internal"];
 const certificateTypes = ["membership", "event", "participation", "leadership", "recognition", "volunteer_hours", "other"];
+const certificateFrontTemplateUrl = "https://i.postimg.cc/CLPrycq0/Front-Side.png";
+const certificateBackTemplateUrl = "https://i.postimg.cc/prVC4jVY/Back-Side.png";
 const emailTypes = [
   "membership_verified",
   "membership_rejected",
@@ -328,6 +360,7 @@ export default function CMSFormModal({ item, moduleKey, moduleLabel, onClose, on
         logoUrl: item.logoUrl || item.logo_url || "",
         headerText: item.headerText || item.header_text || "",
         footerText: item.footerText || item.footer_text || "",
+        fieldConfig: item.fieldConfig || item.field_config || idTemplateInitialForm.fieldConfig,
         isDefault: Boolean(item.isDefault || item.is_default),
         status: item.status || "draft",
       });
@@ -344,6 +377,7 @@ export default function CMSFormModal({ item, moduleKey, moduleLabel, onClose, on
         footerText: item.footerText || item.footer_text || "",
         signatureName: item.signatureName || item.signature_name || "",
         signatureDesignation: item.signatureDesignation || item.signature_designation || "",
+        fieldConfig: item.fieldConfig || item.field_config || certificateTemplateInitialForm.fieldConfig,
         isDefault: Boolean(item.isDefault || item.is_default),
         status: item.status || "draft",
       });
@@ -383,6 +417,13 @@ export default function CMSFormModal({ item, moduleKey, moduleLabel, onClose, on
     }));
   }
 
+  function updateTemplateFieldConfig(fieldConfig) {
+    setForm((current) => ({
+      ...current,
+      fieldConfig,
+    }));
+  }
+
   function submit(event) {
     event.preventDefault();
     onSubmit(form);
@@ -390,7 +431,7 @@ export default function CMSFormModal({ item, moduleKey, moduleLabel, onClose, on
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <form className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onSubmit={submit}>
+      <form className={`max-h-[92vh] w-full overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl ${isCertificateTemplates || isIdTemplates ? "max-w-6xl" : "max-w-2xl"}`} onSubmit={submit}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-600">CMS Form</p>
@@ -518,12 +559,14 @@ export default function CMSFormModal({ item, moduleKey, moduleLabel, onClose, on
               <label><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Signature Name</span><input className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-semibold outline-none" name="signatureName" onChange={updateField} value={form.signatureName} /></label>
               <label><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Signature Designation</span><input className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-semibold outline-none" name="signatureDesignation" onChange={updateField} value={form.signatureDesignation} /></label>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 text-white" style={form.backgroundUrl ? { backgroundImage: `linear-gradient(rgba(15,23,42,.68), rgba(15,23,42,.68)), url(${form.backgroundUrl})`, backgroundSize: "cover" } : undefined}>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Live Preview</p>
-              <h3 className="mt-4 text-2xl font-black">{form.headerText || "Certificate"}</h3>
-              <p className="mt-6 text-sm font-semibold">{(form.bodyTemplate || "").replaceAll("{{full_name}}", "Volunteer Name").replaceAll("{{event_name}}", "Maai Event").replaceAll("{{certificate_id}}", "MAAI-EVT-ABC123")}</p>
-              <p className="mt-6 text-sm font-black">{form.signatureName || "Signature"} / {form.signatureDesignation || "Designation"}</p>
-            </div>
+            <Suspense fallback={<TemplateEditorFallback />}>
+              <VisualTemplateEditor
+                backImageUrl={certificateBackTemplateUrl}
+                fieldConfig={form.fieldConfig}
+                frontImageUrl={certificateFrontTemplateUrl}
+                onChange={updateTemplateFieldConfig}
+              />
+            </Suspense>
             <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-black text-slate-700"><input checked={Boolean(form.isDefault)} name="isDefault" onChange={updateField} type="checkbox" /> Default for this certificate type</label>
           </div>
         ) : isIdTemplates ? (
@@ -566,19 +609,14 @@ export default function CMSFormModal({ item, moduleKey, moduleLabel, onClose, on
                 <input className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-semibold outline-none" name="footerText" onChange={updateField} value={form.footerText} />
               </label>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white" style={form.frontBackgroundUrl ? { backgroundImage: `linear-gradient(rgba(15,23,42,0.62), rgba(15,23,42,0.62)), url(${form.frontBackgroundUrl})`, backgroundSize: "cover" } : undefined}>
-                <span className="text-xs font-black uppercase tracking-[0.14em] text-cyan-200">Front Preview</span>
-                <h3 className="mt-3 text-lg font-black">{form.headerText || "Maai Membership Card"}</h3>
-                <p className="mt-8 text-sm font-bold">Volunteer Name</p>
-                <p className="text-xs font-semibold">MAAI-VOL-0001 / MAAI-ID-ABC123</p>
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 p-4 text-white" style={form.backBackgroundUrl ? { backgroundImage: `linear-gradient(rgba(15,23,42,0.62), rgba(15,23,42,0.62)), url(${form.backBackgroundUrl})`, backgroundSize: "cover" } : undefined}>
-                <span className="text-xs font-black uppercase tracking-[0.14em] text-cyan-200">Back Preview</span>
-                <div className="mt-8 grid h-16 w-16 place-items-center rounded-xl bg-white/20 text-xs font-black">QR</div>
-                <p className="mt-4 text-xs font-semibold">{form.footerText || "Footer text"}</p>
-              </div>
-            </div>
+            <Suspense fallback={<TemplateEditorFallback />}>
+              <VisualTemplateEditor
+                backImageUrl={form.backBackgroundUrl}
+                fieldConfig={form.fieldConfig}
+                frontImageUrl={form.frontBackgroundUrl}
+                onChange={updateTemplateFieldConfig}
+              />
+            </Suspense>
             <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-black text-slate-700">
               <input checked={Boolean(form.isDefault)} name="isDefault" onChange={updateField} type="checkbox" />
               Default template

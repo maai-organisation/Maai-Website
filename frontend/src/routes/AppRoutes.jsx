@@ -1,31 +1,51 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Routes, Route } from "react-router-dom";
-import Home from "../pages/Home";
-import InitiativeDetail from "../pages/InitiativeDetail";
-import AdminCampRegistrations from "../pages/AdminCampRegistrations";
-import AdminAnnouncements from "../pages/AdminAnnouncements";
-import AdminCareers from "../pages/AdminCareers";
-import AdminEmailCenter from "../pages/AdminEmailCenter";
-import AdminEventCertificates from "../pages/AdminEventCertificates";
-import AdminEvents from "../pages/AdminEvents";
-import AdminPanel from "../pages/admin/AdminPanel";
-import AdminNgos from "../pages/admin/AdminNgos";
-import AdminVolunteers from "../pages/admin/AdminVolunteers";
-import Careers from "../pages/Careers";
-import CMSConsole from "../pages/cms/CMSConsole";
-import Dashboard from "../pages/Dashboard";
-import Membership from "../pages/Membership";
-import NgoPortal from "../pages/NgoPortal";
-import NgoDashboard from "../pages/NgoDashboard";
-import RoleSelection from "../pages/RoleSelection";
-import StaffPanel from "../pages/staff/StaffPanel";
-import Team from "../pages/Team";
 import { ProtectedRoute, RoleProtectedRoute } from "../components/auth/ProtectedRoute";
-import Auth from "../pages/auth/Auth";
 import PublicLayout from "../layouts/PublicLayout";
+
+const Home = lazy(() => import("../pages/Home"));
+const InitiativeDetail = lazy(() => import("../pages/InitiativeDetail"));
+const AdminCampRegistrations = lazy(() => import("../pages/AdminCampRegistrations"));
+const AdminCamps = lazy(() => import("../pages/AdminCamps"));
+const AdminAnnouncements = lazy(() => import("../pages/AdminAnnouncements"));
+const AdminCareers = lazy(() => import("../pages/AdminCareers"));
+const AdminEmailCenter = lazy(() => import("../pages/AdminEmailCenter"));
+const AdminEventCertificates = lazy(() => import("../pages/AdminEventCertificates"));
+const AdminEvents = lazy(() => import("../pages/AdminEvents"));
+const AdminPanel = lazy(() => import("../pages/admin/AdminPanel"));
+const AdminNgos = lazy(() => import("../pages/admin/AdminNgos"));
+const AdminVolunteers = lazy(() => import("../pages/admin/AdminVolunteers"));
+const Careers = lazy(() => import("../pages/Careers"));
+const CMSConsole = lazy(() => import("../pages/cms/CMSConsole"));
+const Dashboard = lazy(() => import("../pages/Dashboard"));
+const Membership = lazy(() => import("../pages/Membership"));
+const NgoPortal = lazy(() => import("../pages/NgoPortal"));
+const NgoDashboard = lazy(() => import("../pages/NgoDashboard"));
+const RoleSelection = lazy(() => import("../pages/RoleSelection"));
+const StaffPanel = lazy(() => import("../pages/staff/StaffPanel"));
+const Team = lazy(() => import("../pages/Team"));
+const Auth = lazy(() => import("../pages/auth/Auth"));
+
+function LoadingScreen() {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      display: "grid",
+      placeItems: "center",
+      background: "#F6FAFB",
+      color: "#041C32",
+      fontFamily: "system-ui, sans-serif",
+      fontWeight: 800,
+    }}>
+      Loading Maai...
+    </div>
+  );
+}
 
 export default function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<LoadingScreen />}>
+      <Routes>
       <Route element={<PublicLayout />}>
         <Route index element={<RoleSelection />} />
         <Route path="volunteer" element={<Home />} />
@@ -132,6 +152,22 @@ export default function AppRoutes() {
         element={
           <RoleProtectedRoute allowedRoles={["volunteer", "it_staff", "superadmin"]}>
             <Dashboard page="request-camp" />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/volunteer/announcements"
+        element={
+          <RoleProtectedRoute allowedRoles={["volunteer", "it_staff", "superadmin"]}>
+            <Dashboard page="announcements" />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/volunteer/god-mode"
+        element={
+          <RoleProtectedRoute allowedRoles={["superadmin"]}>
+            <Dashboard page="god-mode" />
           </RoleProtectedRoute>
         }
       />
@@ -404,10 +440,42 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/admin/camps"
+        element={
+          <RoleProtectedRoute allowedRoles={["superadmin", "it_staff"]}>
+            <AdminCamps />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/camps/:id"
+        element={
+          <RoleProtectedRoute allowedRoles={["superadmin", "it_staff"]}>
+            <AdminCamps />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
         path="/staff/events"
         element={
           <RoleProtectedRoute allowedRoles={["it_staff"]}>
             <AdminEvents />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/staff/camps"
+        element={
+          <RoleProtectedRoute allowedRoles={["it_staff"]}>
+            <AdminCamps />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/staff/camps/:id"
+        element={
+          <RoleProtectedRoute allowedRoles={["it_staff"]}>
+            <AdminCamps />
           </RoleProtectedRoute>
         }
       />
@@ -483,6 +551,7 @@ export default function AppRoutes() {
           </RoleProtectedRoute>
         }
       />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

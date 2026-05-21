@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Award, Bell, Briefcase, CalendarDays, ClipboardList, FileBadge, FileText, HeartHandshake, IdCard, Megaphone, MessageSquare, Search, Settings, ShieldCheck, Star, UserCog, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "../../components/notifications/NotificationBell";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import {
@@ -12,6 +12,8 @@ import {
   updateAdminVolunteerPaymentStatus,
   updateAdminVolunteerStatus,
 } from "../../services/api";
+
+const MAAI_LOGO_URL = "https://i.postimg.cc/G90qB7wj/maai-Logo-(2).png";
 
 const staffSections = [
   { title: "Dashboard", items: [{ key: "dashboard", label: "Dashboard" }] },
@@ -40,6 +42,7 @@ const staffSections = [
     title: "Events",
     items: [
       { key: "events", label: "Events" },
+      { key: "camps", label: "Camps" },
       { key: "certificates", label: "Certificates" },
     ],
   },
@@ -47,9 +50,14 @@ const staffSections = [
     title: "Operations",
     items: [
       { key: "camp-requests", label: "Camp Requests" },
+      { key: "settings", label: "Membership Settings" },
+    ],
+  },
+  {
+    title: "Communications",
+    items: [
       { key: "announcements", label: "Announcements" },
       { key: "notifications", label: "Notifications" },
-      { key: "settings", label: "Membership Settings" },
     ],
   },
 ];
@@ -85,6 +93,7 @@ const staffNavIcons = {
   "certificate-templates": FileBadge,
   "social-links": Megaphone,
   events: CalendarDays,
+  camps: ClipboardList,
   certificates: Award,
   "camp-requests": ClipboardList,
   announcements: Megaphone,
@@ -98,9 +107,11 @@ function formatDate(value) {
 }
 
 function StaffLayout({ active, children, onSelect }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [, setMobileMenuOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const navigate = useNavigate();
   const closeMobileMenu = () => setMobileMenuOpen(false);
-  const getNavItemClass = (collapsed) => `flex min-h-12 w-full items-center rounded-2xl text-sm font-extrabold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 ${
+  const getNavItemClass = (collapsed) => `flex min-h-12 w-full items-center rounded-xl text-sm font-bold text-white/60 transition hover:bg-white/10 hover:text-white ${
     collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3 text-left"
   }`;
   const renderNavLabel = (item, collapsed) => {
@@ -113,19 +124,58 @@ function StaffLayout({ active, children, onSelect }) {
     );
   };
 
+  function searchStaff(event) {
+    event.preventDefault();
+    const term = query.trim().toLowerCase();
+    if (!term) return;
+    const routeMap = {
+      dashboard: "/staff",
+      volunteers: "/staff",
+      members: "/staff",
+      ngos: "/staff/ngos",
+      events: "/staff/events",
+      camps: "/staff/camps",
+      "camp requests": "/staff/camp-requests",
+      announcements: "/staff/communications/announcements",
+      certificates: "/staff/events",
+      settings: "/staff/settings/membership",
+      careers: "/staff/cms/careers",
+      team: "/staff/cms/team",
+      mentors: "/staff/cms/mentors",
+      initiatives: "/staff/cms/initiatives",
+      reels: "/staff/cms/reels",
+      testimonials: "/staff/cms/testimonials",
+      "id card": "/staff/cms/id-templates",
+      social: "/staff/cms/social-links",
+    };
+    const navMatch = staffSections.flatMap((section) => section.items).find((item) => {
+      const haystack = `${item.label} ${item.key}`.toLowerCase();
+      return haystack.includes(term) || term.split(/\s+/).some((word) => haystack.includes(word));
+    });
+    const directKey = Object.keys(routeMap).find((key) => key.includes(term) || term.includes(key));
+    const path = routeMap[directKey] || routeMap[navMatch?.key] || routeMap[(navMatch?.label || "").toLowerCase()];
+    if (path) {
+      navigate(path);
+      setQuery("");
+    } else if (navMatch) {
+      onSelect(navMatch.key);
+      setQuery("");
+    }
+  }
+
   const sidebar = ({ collapsed = false } = {}) => (
-    <div className={`flex h-full w-full flex-col ${collapsed ? "items-center p-4" : "p-6"}`}>
-      <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`} title={collapsed ? "Maai Staff" : undefined}>
-        <img alt="" className="h-10 w-10 rounded-2xl bg-white shadow-sm border border-slate-100" src="/Favicon.ico" />
+    <div className={`flex h-full w-full flex-col ${collapsed ? "items-center p-4" : "p-5"}`}>
+      <div className={`flex items-center border-b border-white/10 pb-5 ${collapsed ? "justify-center" : "gap-3"}`} title={collapsed ? "Maai Staff" : undefined}>
+        <img alt="Maai" className="h-20 w-20 object-contain" src={MAAI_LOGO_URL} />
         <div className={collapsed ? "sr-only" : ""}>
-          <p className="text-sm font-black text-slate-900">Maai Staff</p>
-          <p className="text-xs font-bold text-slate-500">IT STAFF</p>
+          <p className="text-sm font-black text-white">Maai Staff</p>
+          <p className="text-xs font-bold text-white/40">IT STAFF</p>
         </div>
       </div>
-      <nav className={`mt-8 grid flex-1 gap-6 overflow-y-auto ${collapsed ? "w-full pr-0" : "pr-1"}`}>
+      <nav className={`mt-4 grid flex-1 gap-5 overflow-y-auto ${collapsed ? "w-full pr-0" : "pr-1"}`}>
         {staffSections.map((section) => (
           <section key={section.title}>
-            <p className={`mb-2 px-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ${collapsed ? "sr-only" : ""}`}>{section.title}</p>
+            <p className={`mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/30 ${collapsed ? "sr-only" : ""}`}>{section.title}</p>
             <div className="grid gap-1">
               {section.items.map((item) => (
                 item.key === "volunteers" ? (
@@ -134,6 +184,8 @@ function StaffLayout({ active, children, onSelect }) {
                   <Link aria-label={item.label} className={getNavItemClass(collapsed)} key={item.key} onClick={closeMobileMenu} title={collapsed ? item.label : undefined} to="/staff/ngos">{renderNavLabel(item, collapsed)}</Link>
                 ) : item.key === "events" ? (
                   <Link aria-label={item.label} className={getNavItemClass(collapsed)} key={item.key} onClick={closeMobileMenu} title={collapsed ? item.label : undefined} to="/staff/events">{renderNavLabel(item, collapsed)}</Link>
+                ) : item.key === "camps" ? (
+                  <Link aria-label={item.label} className={getNavItemClass(collapsed)} key={item.key} onClick={closeMobileMenu} title={collapsed ? item.label : undefined} to="/staff/camps">{renderNavLabel(item, collapsed)}</Link>
                 ) : item.key === "camp-requests" ? (
                   <Link aria-label={item.label} className={getNavItemClass(collapsed)} key={item.key} onClick={closeMobileMenu} title={collapsed ? item.label : undefined} to="/staff/camp-requests">{renderNavLabel(item, collapsed)}</Link>
                 ) : item.key === "announcements" ? (
@@ -175,7 +227,9 @@ function StaffLayout({ active, children, onSelect }) {
                     className={`flex min-h-12 w-full items-center rounded-2xl text-sm font-extrabold transition ${
                       collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3 text-left"
                     } ${
-                      active === item.key ? "bg-cyan-50 text-cyan-700 shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      active === item.key
+                        ? "bg-gradient-to-br from-sky-500/25 to-cyan-500/20 text-white shadow-[inset_0_0_0_1px_rgba(14,165,233,0.3)]"
+                        : "text-white/60 hover:bg-white/10 hover:text-white"
                     }`}
                     key={item.key}
                     onClick={() => { onSelect(item.key); closeMobileMenu(); }}
@@ -191,18 +245,18 @@ function StaffLayout({ active, children, onSelect }) {
         ))}
       </nav>
       <div
-        className={`mt-auto border border-slate-100 bg-slate-50 ${
-          collapsed ? "grid h-12 w-12 place-items-center rounded-2xl p-0" : "rounded-3xl p-4"
+        className={`mt-auto border border-white/10 bg-white/5 ${
+          collapsed ? "grid h-12 w-12 place-items-center rounded-xl p-0" : "rounded-2xl p-4"
         }`}
         title={collapsed ? "Staff - it staff" : undefined}
       >
         {collapsed ? (
-          <span className="text-sm font-black text-cyan-700">S</span>
+          <span className="text-sm font-black text-cyan-200">S</span>
         ) : (
           <>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Signed in as</p>
-            <p className="mt-2 text-sm font-black text-slate-900">Staff</p>
-            <p className="mt-1 text-xs font-bold capitalize text-cyan-700">it staff</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/30">Signed in as</p>
+            <p className="mt-2 text-sm font-black text-white">Staff</p>
+            <p className="mt-1 text-xs font-bold capitalize text-cyan-200">it staff</p>
           </>
         )}
       </div>
@@ -210,26 +264,26 @@ function StaffLayout({ active, children, onSelect }) {
   );
 
   const topbarContent = (
-    <header className="flex items-center justify-between gap-4 rounded-[24px] bg-white/85 px-6 py-4 shadow-sm backdrop-blur-xl border border-slate-100">
+    <header className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-600">Staff panel</p>
         <h1 className="truncate text-xl font-black md:text-2xl">{labels[active]}</h1>
       </div>
-      <div className="hidden h-11 min-w-64 flex-1 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-400 xl:flex">
+      <form className="hidden h-10 min-w-64 flex-1 items-center gap-3 rounded-xl border border-[#041C32]/10 bg-white px-4 text-sm font-semibold text-slate-400 xl:flex" onSubmit={searchStaff}>
         <Search className="h-4 w-4" />
-        <span>Search staff workspace</span>
-      </div>
+        <input className="w-full bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400" onChange={(event) => setQuery(event.target.value)} placeholder="Search staff workspace" value={query} />
+      </form>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white md:inline-flex">it staff</span>
+        <span className="hidden rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-sky-700 md:inline-flex">it staff</span>
         <NotificationBell />
         <Link
-          className="hidden rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-extrabold text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700 sm:inline-flex"
+          className="hidden rounded-full border border-[#041C32]/10 bg-white px-4 py-2 text-sm font-extrabold text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700 sm:inline-flex"
           to="/dashboard"
         >
           Member View
         </Link>
         <Link
-          className="rounded-full bg-slate-950 px-4 py-2 text-sm font-extrabold text-white transition hover:bg-cyan-700"
+          className="rounded-full bg-gradient-to-r from-sky-500 to-teal-500 px-4 py-2 text-sm font-extrabold text-white transition hover:opacity-90"
           to="/volunteer"
         >
           Back to Website
@@ -270,6 +324,7 @@ function DashboardView() {
   ];
   const quickActions = [
     ["Verify Members", "/admin/volunteers", ShieldCheck],
+    ["Announcements", "/staff/communications/announcements", Megaphone],
     ["Issue Certificates", "/staff/events", Award],
     ["Review Camps", "/staff/camp-requests", FileText],
     ["CMS", "/staff/cms/initiatives", CalendarDays],

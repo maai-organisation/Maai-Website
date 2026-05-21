@@ -18,7 +18,7 @@ import {
 
 const eventTypes = ["camp", "workshop", "awareness", "conference", "research", "meeting", "training", "other"];
 const visibilities = ["public", "members_only", "internal"];
-const statuses = ["draft", "published", "completed", "cancelled", "archived"];
+const statuses = ["draft", "published", "upcoming", "ongoing", "completed", "cancelled", "archived"];
 
 const initialEvent = {
   title: "",
