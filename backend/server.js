@@ -57,7 +57,8 @@ app.get("/health", async (_req, res) => {
   let dbStatus = "disconnected";
 
   try {
-    await pool.query("SELECT 1");
+    const [rows] = await pool.query("SELECT 1 as status");
+    void rows;
     dbStatus = "connected";
   } catch (err) {
     dbStatus = "error";
@@ -2555,8 +2556,8 @@ app.use((error, req, res, next) => {
 });
 
 async function validateDatabaseStartup() {
-  await pool.query("SELECT 1");
-  console.log("DB connected");
+  const [rows] = await pool.query("SELECT 1 as status");
+  console.log("Database OK", rows);
   console.log({
     DB_HOST: process.env.DB_HOST,
     DB_NAME: process.env.DB_NAME,
