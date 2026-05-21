@@ -15,7 +15,7 @@ const eventRoutes = require("./routes/eventRoutes");
 const emailRoutes = require("./routes/emailRoutes");
 const idCardRoutes = require("./routes/idCardRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-const { startDbHeartbeat } = require("./utils/dbHeartbeat");
+const startDbHeartbeat = require("./utils/dbHeartbeat");
 const { sendTemplateEmail } = require("./utils/emailService");
 const { requireAuth } = require("./middleware/authMiddleware");
 const { authorizeRoles } = require("./middleware/roleMiddleware");
@@ -2586,7 +2586,7 @@ async function startServer() {
   try {
     await validateDatabaseStartup();
     await initializeDatabase();
-    startDbHeartbeat(pool);
+    startDbHeartbeat();
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

@@ -1,17 +1,30 @@
-function startDbHeartbeat(pool) {
-  const intervalMs = 300000;
+const pool = require("../config/db");
 
-  return setInterval(async () => {
-    try {
-      const [rows] = await pool.query("SELECT 1");
-      void rows;
-      console.log("[DB_HEARTBEAT]", new Date().toISOString(), "Aiven connection OK");
-    } catch (err) {
-      console.error("[DB_HEARTBEAT_ERROR]", err.message);
+function startDbHeartbeat(){
+
+  setInterval(async()=>{
+
+    try{
+
+      await pool.query(
+        "SELECT 1"
+      );
+
+      console.log(
+        "[DB_HEARTBEAT] OK"
+      );
+
+    }catch(err){
+
+      console.error(
+        "[DB_HEARTBEAT]",
+        err.message
+      );
+
     }
-  }, intervalMs);
+
+  },300000);
+
 }
 
-module.exports = {
-  startDbHeartbeat,
-};
+module.exports=startDbHeartbeat;
