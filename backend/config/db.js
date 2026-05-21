@@ -56,6 +56,3 @@ async function testDatabaseConnection() {
 }
 
 module.exports = { pool, testDatabaseConnection };
-pool.testDatabaseConnection = testDatabaseConnection;
-
-module.exports = pool;
