@@ -2558,28 +2558,29 @@ app.use((error, req, res, next) => {
 });
 
 async function validateDatabaseStartup() {
-  try {
+   try {
 
-    const [rows] = await pool.query(
-      "SELECT 1 AS status"
-    );
+      const [rows] = await pool.query(
+         "SELECT 1 AS status"
+      );
 
-    console.log(
-      "Database OK",
-      rows
-    );
+      console.log(
+         "Database startup check OK",
+         rows
+      );
 
-    return true;
+      return true;
 
-  } catch (err) {
+   } catch (err) {
 
-    console.error(
-      "Failed to initialize database",
-      err
-    );
+      console.error(
+         "Database startup check failed",
+         err
+      );
 
-    throw err;
-  }
+      throw err;
+
+   }
 }
 
 async function startServer() {
