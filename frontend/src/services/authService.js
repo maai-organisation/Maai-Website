@@ -50,7 +50,7 @@ export async function registerVolunteer(payload) {
 }
 
 export async function registerNgo(payload) {
-  const response = await apiClient.post("/auth/ngo/register", payload);
+  const response = await apiClient.post("/ngo/register", payload);
   return persistSession(response.data);
 }
 
@@ -65,7 +65,7 @@ export async function loginVolunteer(payload) {
 }
 
 export async function loginNgo(payload) {
-  const response = await apiClient.post("/auth/ngo/login", payload);
+  const response = await apiClient.post("/ngo/login", payload);
   return persistSession(response.data);
 }
 

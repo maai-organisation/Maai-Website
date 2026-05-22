@@ -107,6 +107,24 @@ async function initDatabase() {
     )
   `);
   await ensureColumn("ngos", "password_hash", "VARCHAR(255) NOT NULL");
+  await ensureColumn("ngos", "organisation_name", "VARCHAR(220) NULL");
+  await ensureColumn("ngos", "organisation_type", "VARCHAR(120) NULL");
+  await ensureColumn("ngos", "year_established", "INT UNSIGNED NULL");
+  await ensureColumn("ngos", "founder_name", "VARCHAR(180) NULL");
+  await ensureColumn("ngos", "designation", "VARCHAR(180) NULL");
+  await ensureColumn("ngos", "representative_email", "VARCHAR(180) NULL");
+  await ensureColumn("ngos", "representative_phone", "VARCHAR(40) NULL");
+  await ensureColumn("ngos", "pincode", "VARCHAR(20) NULL");
+  await ensureColumn("ngos", "country", "VARCHAR(120) NULL DEFAULT 'India'");
+  await ensureColumn("ngos", "work_areas", "JSON NULL");
+  await ensureColumn("ngos", "target_population", "TEXT NULL");
+  await ensureColumn("ngos", "districts_served", "TEXT NULL");
+  await ensureColumn("ngos", "beneficiaries_per_year", "INT UNSIGNED NULL");
+  await ensureColumn("ngos", "existing_collaborations", "TEXT NULL");
+  await ensureColumn("ngos", "partnership_intent", "JSON NULL");
+  await ensureColumn("ngos", "camp_request", "JSON NULL");
+  await ensureColumn("ngos", "uploads", "JSON NULL");
+  await ensureColumn("ngos", "status", "ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending'");
   await ensureColumn("ngos", "chapter", "VARCHAR(180) NULL");
   await ensureColumn("ngos", "partner_level", "VARCHAR(120) NULL");
   await ensureColumn("ngos", "certificate_enabled", "TINYINT(1) NOT NULL DEFAULT 0");

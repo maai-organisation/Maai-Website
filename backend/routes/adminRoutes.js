@@ -12,7 +12,7 @@ const router = express.Router();
 
 const allowedRoles = new Set(["volunteer", "it_staff", "superadmin"]);
 const allowedMembershipStatuses = new Set(["under_review", "verified", "rejected"]);
-const allowedNgoStatuses = new Set(["under_review", "verified", "rejected", "suspended"]);
+const allowedNgoStatuses = new Set(["under_review", "verified", "rejected", "suspended", "pending", "approved"]);
 const allowedPaymentStatuses = new Set(["free", "pending", "paid", "failed"]);
 
 function cleanString(value, maxLength = 1000) {
@@ -36,6 +36,19 @@ function mapVolunteerRow(row) {
     ...volunteer,
     joinedDate: row.created_at,
   };
+}
+
+function normalizeNgoStatus(value) {
+  const status = cleanString(value, 40);
+  if (status === "pending") return "under_review";
+  if (status === "approved") return "verified";
+  return status;
+}
+
+function publicNgoStatus(value) {
+  if (value === "verified") return "approved";
+  if (value === "rejected") return "rejected";
+  return "pending";
 }
 
 function mapAnnouncement(row) {
@@ -325,7 +338,7 @@ router.get(
   "/volunteers",
   asyncHandler(async (req, res) => {
     const search = cleanString(req.query.search, 180);
-    const membershipStatus = cleanString(req.query.membershipStatus || req.query.membership_status, 40);
+    const membershipStatus = normalizeNgoStatus(req.query.membershipStatus || req.query.membership_status || req.query.status);
     const paymentStatus = cleanString(req.query.paymentStatus || req.query.payment_status, 40);
     const college = cleanString(req.query.college, 180);
     const city = cleanString(req.query.city, 120);
@@ -398,27 +411,30 @@ router.get(
 
     const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
     const [rows] = await pool.query(`SELECT * FROM ngos ${where} ORDER BY created_at DESC`, values);
-    res.json({ success: true, data: rows.map((row) => ({ ...mapNgo(row), joinedDate: row.created_at })) });
+    res.json({ success: true, data: rows.map((row) => ({ ...mapNgo(row), status: row.status || publicNgoStatus(row.membership_status), joinedDate: row.created_at })) });
   }),
 );
 
 router.patch(
   "/ngos/:id/status",
   asyncHandler(async (req, res) => {
-    const membershipStatus = cleanString(req.body?.membershipStatus || req.body?.membership_status || req.body?.status, 40);
+    const requestedStatus = cleanString(req.body?.status || req.body?.membershipStatus || req.body?.membership_status, 40);
+    const membershipStatus = normalizeNgoStatus(requestedStatus);
     if (!allowedNgoStatuses.has(membershipStatus)) {
       return res.status(400).json({ success: false, message: "Invalid NGO status." });
     }
+    const publicStatus = publicNgoStatus(membershipStatus);
 
     const [result] = await pool.query(
       `
         UPDATE ngos
         SET membership_status = ?,
+            status = ?,
             verified_by = IF(? = 'verified', ?, NULL),
             verified_at = IF(? = 'verified', NOW(), NULL)
         WHERE id = ?
       `,
-      [membershipStatus, membershipStatus, req.user.id, membershipStatus, req.params.id],
+      [membershipStatus, publicStatus, membershipStatus, req.user.id, membershipStatus, req.params.id],
     );
     if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "NGO not found." });
 

@@ -1,5 +1,6 @@
 import {
   Activity,
+  Building2,
   CalendarCheck,
   CheckCircle2,
   ClipboardList,
@@ -29,9 +30,9 @@ import {
 
 const navItems = [
   { label: "Dashboard", to: "/ngo-dashboard", icon: LayoutDashboard },
-  { label: "Organise", to: "/ngo-dashboard/organise", icon: Plus },
+  { label: "Request Camp", to: "/ngo-dashboard/organise", icon: Plus },
   { label: "Camps", to: "/ngo-dashboard/camps", icon: FolderKanban },
-  { label: "Requests", to: "/ngo-dashboard/requests", icon: ClipboardList },
+  { label: "My Requests", to: "/ngo-dashboard/requests", icon: ClipboardList },
 ];
 
 const initialCampForm = {
@@ -248,6 +249,20 @@ function DashboardHome({ stats, camps, announcements, loading }) {
               <Icon className="h-5 w-5 text-[#0097A7]" />
             </div>
             <p className="mt-4 text-3xl font-black">{loading ? "-" : value}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        {[
+          ["Request Camp", "Create a new medical camp or awareness program request.", Plus],
+          ["My Requests", "Track submitted, approved, and completed collaboration requests.", ClipboardList],
+          ["Organisation Profile", "Keep your NGO details and contact information ready for review.", Building2],
+        ].map(([title, copy, Icon]) => (
+          <article className="rounded-2xl border border-white bg-white p-5 shadow-[0_18px_50px_rgba(4,28,50,0.07)]" key={title}>
+            <Icon className="h-5 w-5 text-[#0097A7]" />
+            <h3 className="mt-4 text-lg font-black">{title}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{copy}</p>
           </article>
         ))}
       </div>

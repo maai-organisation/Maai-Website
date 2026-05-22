@@ -16,6 +16,7 @@ const emailRoutes = require("./routes/emailRoutes");
 const idCardRoutes = require("./routes/idCardRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const ngoDashboardRoutes = require("./routes/ngoDashboardRoutes");
+const ngoRoutes = require("./routes/ngoRoutes");
 const startDbHeartbeat = require("./utils/dbHeartbeat");
 const { sendTemplateEmail } = require("./utils/emailService");
 const { requireAuth } = require("./middleware/authMiddleware");
@@ -84,6 +85,7 @@ app.get("/health", async (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/ngo", requireDatabase, ngoRoutes);
 app.use("/api/announcements", requireDatabase, announcementRoutes);
 app.use("/api/camps", campRoutes);
 app.use("/api/events", eventRoutes);

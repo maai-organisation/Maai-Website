@@ -20,6 +20,7 @@ const CMSConsole = lazy(() => import("../pages/cms/CMSConsole"));
 const Dashboard = lazy(() => import("../pages/Dashboard"));
 const Membership = lazy(() => import("../pages/Membership"));
 const NgoPortal = lazy(() => import("../pages/NgoPortal"));
+const NgoAuth = lazy(() => import("../pages/ngo/NgoAuth"));
 const NgoDashboard = lazy(() => import("../pages/NgoDashboard"));
 const NgoDashboardV1 = lazy(() => import("../pages/NgoDashboardV1"));
 const RoleSelection = lazy(() => import("../pages/RoleSelection"));
@@ -57,6 +58,7 @@ export default function AppRoutes() {
       </Route>
 
       <Route path="/auth" element={<Auth />} />
+      <Route path="/ngo-auth" element={<NgoAuth />} />
       <Route path="/ngo" element={<NgoPortal />} />
       <Route path="/ngo/login" element={<Navigate replace to="/auth?mode=ngo-login" />} />
 

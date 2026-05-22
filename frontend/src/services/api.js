@@ -122,13 +122,23 @@ export async function getAdminNgos(params = {}) {
   return unwrapList(await apiClient.get("/admin/ngos", { params }));
 }
 
+export async function registerNgoPartner(payload) {
+  const response = await apiClient.post("/ngo/register", payload);
+  return response.data;
+}
+
+export async function loginNgoPartner(payload) {
+  const response = await apiClient.post("/ngo/login", payload);
+  return response.data;
+}
+
 export async function updateNgoProfile(payload) {
   const response = await apiClient.patch("/auth/ngo/me", payload);
   return response.data?.data;
 }
 
 export async function updateAdminNgoStatus(id, membershipStatus) {
-  const response = await apiClient.patch(`/admin/ngos/${id}/status`, { membershipStatus });
+  const response = await apiClient.patch(`/admin/ngos/${id}/status`, { status: membershipStatus, membershipStatus });
   return response.data?.data;
 }
 

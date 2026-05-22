@@ -32,13 +32,41 @@ function mapVolunteer(row) {
   };
 }
 
+function parseJsonField(value, fallback = null) {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 function mapNgo(row) {
+  const workAreas = parseJsonField(row.work_areas, row.work_areas || []);
+  const partnershipIntent = parseJsonField(row.partnership_intent, {});
+  const campRequest = parseJsonField(row.camp_request, {});
+  const uploads = parseJsonField(row.uploads, {});
+
   return {
     id: row.id,
     organization_name: row.organization_name,
     organizationName: row.organization_name,
     registration_number: row.registration_number,
     registrationNumber: row.registration_number,
+    organisation_name: row.organisation_name || row.organization_name,
+    organisationName: row.organisation_name || row.organization_name,
+    organisation_type: row.organisation_type || row.ngo_type,
+    organisationType: row.organisation_type || row.ngo_type,
+    year_established: row.year_established,
+    yearEstablished: row.year_established,
+    founder_name: row.founder_name,
+    founderName: row.founder_name,
+    designation: row.designation,
+    representative_email: row.representative_email,
+    representativeEmail: row.representative_email,
+    representative_phone: row.representative_phone,
+    representativePhone: row.representative_phone,
     ngo_type: row.ngo_type,
     ngoType: row.ngo_type,
     email: row.email,
@@ -47,6 +75,24 @@ function mapNgo(row) {
     city: row.city,
     state: row.state,
     address: row.address,
+    pincode: row.pincode,
+    country: row.country,
+    work_areas: workAreas,
+    workAreas,
+    target_population: row.target_population,
+    targetPopulation: row.target_population,
+    districts_served: row.districts_served,
+    districtsServed: row.districts_served,
+    beneficiaries_per_year: row.beneficiaries_per_year,
+    beneficiariesPerYear: row.beneficiaries_per_year,
+    existing_collaborations: row.existing_collaborations,
+    existingCollaborations: row.existing_collaborations,
+    partnership_intent: partnershipIntent,
+    partnershipIntent,
+    camp_request: campRequest,
+    campRequest,
+    uploads,
+    status: row.status || (row.membership_status === "verified" ? "approved" : row.membership_status === "rejected" ? "rejected" : "pending"),
     mission: row.mission,
     description: row.description,
     logo_url: row.logo_url,

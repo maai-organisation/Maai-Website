@@ -54,6 +54,27 @@ function authResponse(user) {
 const ngoTypes = new Set(["healthcare", "education", "community", "research", "environment", "other"]);
 const ngoRoles = new Set(["ngo", "ngo_admin"]);
 
+function normalizeStringArray(value) {
+  if (Array.isArray(value)) return value.map((item) => cleanString(item, 120)).filter(Boolean);
+  return String(value || "")
+    .split(",")
+    .map((item) => cleanString(item, 120))
+    .filter(Boolean);
+}
+
+function normalizeIntent(input = {}) {
+  return {
+    campSupport: Boolean(input.campSupport),
+    awarenessPrograms: Boolean(input.awarenessPrograms),
+    screeningCamp: Boolean(input.screeningCamp),
+    researchCollaboration: Boolean(input.researchCollaboration),
+    volunteerSupport: Boolean(input.volunteerSupport),
+    medicalSupport: Boolean(input.medicalSupport),
+    longTermPartnership: Boolean(input.longTermPartnership),
+    csrPartnership: Boolean(input.csrPartnership),
+  };
+}
+
 function cleanString(value, maxLength = 1000) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
@@ -77,17 +98,50 @@ function cleanOptionalUrl(value, fieldLabel) {
 }
 
 function normalizeNgoRegistration(input = {}) {
+  const organisationType = cleanString(input.organisationType || input.organizationType || input.ngoType || input.ngo_type, 120);
+  const workAreas = normalizeStringArray(input.workAreas || input.work_areas);
+  const partnershipIntent = normalizeIntent(input.partnershipIntent || input.partnership_intent || input);
+  const campRequestInput = input.campRequest || input.camp_request || {};
+  const uploads = input.uploads || {};
   const data = {
-    organizationName: cleanString(input.organizationName || input.organization_name, 220),
+    organizationName: cleanString(input.organizationName || input.organization_name || input.organisationName || input.organisation_name, 220),
     registrationNumber: cleanString(input.registrationNumber || input.registration_number, 180),
+    organisationType,
+    yearEstablished: Number(input.yearEstablished || input.year_established || 0) || null,
     ngoType: ngoTypes.has(input.ngoType || input.ngo_type) ? input.ngoType || input.ngo_type : "other",
-    email: cleanString(input.email, 180).toLowerCase(),
+    email: cleanString(input.email || input.organisationEmail || input.organisation_email, 180).toLowerCase(),
     password: String(input.password || ""),
-    phone: cleanString(input.phone, 40),
+    phone: cleanString(input.phone || input.organisationPhone || input.organisation_phone, 40),
     website: cleanOptionalUrl(input.website, "Website"),
+    founderName: cleanString(input.founderName || input.founder_name, 180),
+    designation: cleanString(input.designation, 180),
+    representativeEmail: cleanString(input.representativeEmail || input.representative_email, 180).toLowerCase(),
+    representativePhone: cleanString(input.representativePhone || input.representative_phone, 40),
     city: cleanString(input.city, 120),
     state: cleanString(input.state, 120) || null,
+    pincode: cleanString(input.pincode, 20) || null,
+    country: cleanString(input.country, 120) || "India",
     address: cleanLongText(input.address, 2000) || null,
+    workAreas,
+    targetPopulation: cleanLongText(input.targetPopulation || input.target_population, 2000) || null,
+    districtsServed: cleanLongText(input.districtsServed || input.districts_served, 2000) || null,
+    beneficiariesPerYear: Number(input.beneficiariesPerYear || input.beneficiaries_per_year || 0) || null,
+    existingCollaborations: cleanLongText(input.existingCollaborations || input.existing_collaborations, 3000) || null,
+    partnershipIntent,
+    campRequest: {
+      campType: cleanString(campRequestInput.campType || input.campType, 120),
+      expectedBeneficiaries: cleanString(campRequestInput.expectedBeneficiaries || input.expectedBeneficiaries, 120),
+      preferredDate: cleanString(campRequestInput.preferredDate || input.preferredDate, 40),
+      campLocation: cleanString(campRequestInput.campLocation || input.campLocation, 220),
+      notes: cleanLongText(campRequestInput.notes || input.notes, 3000),
+    },
+    uploads: {
+      registrationCertificate: uploads.registrationCertificate || input.registrationCertificate || null,
+      logo: uploads.logo || input.logo || null,
+      activityImages: Array.isArray(uploads.activityImages || input.activityImages)
+        ? uploads.activityImages || input.activityImages
+        : [],
+    },
     mission: cleanLongText(input.mission, 2000) || null,
     description: cleanLongText(input.description, 5000) || null,
     logoUrl: cleanOptionalUrl(input.logoUrl || input.logo_url, "Logo URL"),
@@ -98,6 +152,9 @@ function normalizeNgoRegistration(input = {}) {
   if (!data.registrationNumber) errors.registrationNumber = "Registration number is required.";
   if (!data.email) errors.email = "Email is required.";
   if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) errors.email = "Enter a valid email.";
+  if (data.representativeEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.representativeEmail)) {
+    errors.representativeEmail = "Enter a valid representative email.";
+  }
   if (!data.password) errors.password = "Password is required.";
   if (data.password && data.password.length < 8) errors.password = "Use at least 8 characters.";
   if (!data.phone) errors.phone = "Phone is required.";
@@ -230,20 +287,37 @@ async function registerNgo(req, res) {
   const [result] = await pool.query(
     `
       INSERT INTO ngos
-        (organization_name, registration_number, ngo_type, email, password_hash, phone, website, city, state, address, mission, description, logo_url, cover_url, membership_status, payment_status, transaction_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'under_review', 'free', 'FREE')
+        (organization_name, organisation_name, organisation_type, year_established, registration_number, ngo_type, founder_name, designation, email, representative_email, password_hash, phone, representative_phone, website, address, city, state, pincode, country, work_areas, target_population, districts_served, beneficiaries_per_year, existing_collaborations, partnership_intent, camp_request, uploads, mission, description, logo_url, cover_url, status, membership_status, payment_status, transaction_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'under_review', 'free', 'FREE')
     `,
     [
       data.organizationName,
+      data.organizationName,
+      data.organisationType,
+      data.yearEstablished,
       data.registrationNumber,
       data.ngoType,
+      data.founderName,
+      data.designation,
       data.email,
+      data.representativeEmail || data.email,
       passwordHash,
       data.phone,
+      data.representativePhone,
       data.website,
+      data.address,
       data.city,
       data.state,
-      data.address,
+      data.pincode,
+      data.country,
+      JSON.stringify(data.workAreas),
+      data.targetPopulation,
+      data.districtsServed,
+      data.beneficiariesPerYear,
+      data.existingCollaborations,
+      JSON.stringify(data.partnershipIntent),
+      JSON.stringify(data.campRequest),
+      JSON.stringify(data.uploads),
       data.mission,
       data.description,
       data.logoUrl,

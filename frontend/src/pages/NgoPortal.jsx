@@ -180,9 +180,9 @@ function NgoNavbar() {
         </nav>
 
         <div className="site-navbar__actions">
-          <a className="site-navbar__cta" href="#register">
+          <Link className="site-navbar__cta" to="/ngo-auth">
             Partner Now
-          </a>
+          </Link>
         </div>
 
         <button
@@ -210,9 +210,9 @@ function NgoNavbar() {
                 {link.label}
               </a>
             ))}
-            <a className="mobile-drawer__cta" href="#register" onClick={closeMenu}>
+            <Link className="mobile-drawer__cta" onClick={closeMenu} to="/ngo-auth">
               Partner Now
-            </a>
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>
@@ -256,7 +256,7 @@ function HeroSection() {
         <motion.div className="hero-section__actions" variants={revealItem}>
           <motion.a
             className="button button--primary"
-            href="#register"
+            href="/ngo-auth"
             whileHover={{ y: -3, scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
