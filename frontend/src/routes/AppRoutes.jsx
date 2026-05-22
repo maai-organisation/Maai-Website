@@ -21,6 +21,7 @@ const Dashboard = lazy(() => import("../pages/Dashboard"));
 const Membership = lazy(() => import("../pages/Membership"));
 const NgoPortal = lazy(() => import("../pages/NgoPortal"));
 const NgoDashboard = lazy(() => import("../pages/NgoDashboard"));
+const NgoDashboardV1 = lazy(() => import("../pages/NgoDashboardV1"));
 const RoleSelection = lazy(() => import("../pages/RoleSelection"));
 const StaffPanel = lazy(() => import("../pages/staff/StaffPanel"));
 const Team = lazy(() => import("../pages/Team"));
@@ -175,7 +176,7 @@ export default function AppRoutes() {
       <Route
         path="/ngo/dashboard"
         element={
-          <RoleProtectedRoute allowedRoles={["ngo"]}>
+          <RoleProtectedRoute allowedRoles={["ngo", "ngo_admin"]}>
             <NgoDashboard />
           </RoleProtectedRoute>
         }
@@ -183,8 +184,40 @@ export default function AppRoutes() {
       <Route
         path="/ngo/dashboard/camp-requests"
         element={
-          <RoleProtectedRoute allowedRoles={["ngo"]}>
+          <RoleProtectedRoute allowedRoles={["ngo", "ngo_admin"]}>
             <NgoDashboard initialPage="camp-requests" />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/ngo-dashboard"
+        element={
+          <RoleProtectedRoute allowedRoles={["ngo", "ngo_admin"]}>
+            <NgoDashboardV1 />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/ngo-dashboard/organise"
+        element={
+          <RoleProtectedRoute allowedRoles={["ngo", "ngo_admin"]}>
+            <NgoDashboardV1 />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/ngo-dashboard/camps"
+        element={
+          <RoleProtectedRoute allowedRoles={["ngo", "ngo_admin"]}>
+            <NgoDashboardV1 />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/ngo-dashboard/requests"
+        element={
+          <RoleProtectedRoute allowedRoles={["ngo", "ngo_admin"]}>
+            <NgoDashboardV1 />
           </RoleProtectedRoute>
         }
       />

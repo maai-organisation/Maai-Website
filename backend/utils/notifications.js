@@ -3,6 +3,7 @@ const { pool } = require("../config/db");
 const roleRecipientTypes = {
   volunteer: "volunteer",
   ngo: "ngo",
+  ngo_admin: "ngo",
   it_staff: "it_staff",
   superadmin: "superadmin",
 };

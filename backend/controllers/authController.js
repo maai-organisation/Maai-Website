@@ -52,6 +52,7 @@ function authResponse(user) {
 }
 
 const ngoTypes = new Set(["healthcare", "education", "community", "research", "environment", "other"]);
+const ngoRoles = new Set(["ngo", "ngo_admin"]);
 
 function cleanString(value, maxLength = 1000) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
@@ -289,7 +290,7 @@ async function me(req, res) {
 }
 
 async function updateNgoProfile(req, res) {
-  if (req.user.role !== "ngo") return res.status(403).json({ success: false, message: "NGO account required." });
+  if (!ngoRoles.has(req.user.role)) return res.status(403).json({ success: false, message: "NGO account required." });
   const { data, errors } = normalizeNgoRegistration({ ...req.user, ...req.body, password: "temporary-pass" });
   delete errors.password;
   if (Object.keys(errors).length > 0) {

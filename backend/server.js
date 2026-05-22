@@ -15,6 +15,7 @@ const eventRoutes = require("./routes/eventRoutes");
 const emailRoutes = require("./routes/emailRoutes");
 const idCardRoutes = require("./routes/idCardRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const ngoDashboardRoutes = require("./routes/ngoDashboardRoutes");
 const startDbHeartbeat = require("./utils/dbHeartbeat");
 const { sendTemplateEmail } = require("./utils/emailService");
 const { requireAuth } = require("./middleware/authMiddleware");
@@ -47,11 +48,12 @@ app.use(
       }
       callback(new Error("Not allowed by CORS"));
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], // 👈 only change
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
+app.options('*', cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
@@ -89,6 +91,7 @@ app.use("/api/email", requireDatabase, emailRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/id-cards", idCardRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/ngo-dashboard", requireDatabase, ngoDashboardRoutes);
 
 const PORT = process.env.PORT || 5000;
 

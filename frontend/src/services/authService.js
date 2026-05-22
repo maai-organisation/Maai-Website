@@ -40,7 +40,7 @@ export function clearSession() {
 }
 
 export function getRoleRedirect(user = getStoredUser()) {
-  if (user?.role === "ngo" || user?.accountType === "ngo" || user?.account_type === "ngo") return "/ngo/dashboard";
+  if (user?.role === "ngo" || user?.role === "ngo_admin" || user?.accountType === "ngo" || user?.account_type === "ngo") return "/ngo-dashboard";
   return "/dashboard";
 }
 

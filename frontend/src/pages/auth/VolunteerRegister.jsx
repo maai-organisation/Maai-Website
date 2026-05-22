@@ -103,7 +103,7 @@ function Field({ label, name, type = "text", value, onChange, error }) {
         style={{
           width: "100%", height: 50, borderRadius: 12,
           border: error ? "1.5px solid #f87171" : focused ? "1.5px solid #22d3ee" : "1.5px solid #e2e8f0",
-          background: "#f8fafc", padding: "0 14px", fontSize: 14,
+          background: "#f8fafc", padding: "0 18px", fontSize: 14,
           fontWeight: 500, color: "#0f172a", outline: "none", lineHeight: "normal",
           boxSizing: "border-box", fontFamily: "inherit",
           boxShadow: focused ? (error ? "0 0 0 3px rgba(248,113,113,0.12)" : "0 0 0 3px rgba(34,211,238,0.12)") : "none",
@@ -131,7 +131,7 @@ function SelectField({ label, name, value, onChange, error, children }) {
         style={{
           width: "100%", height: 50, borderRadius: 12,
           border: error ? "1.5px solid #f87171" : focused ? "1.5px solid #22d3ee" : "1.5px solid #e2e8f0",
-          background: "#f8fafc", padding: "0 14px", fontSize: 14,
+          background: "#f8fafc", padding: "0 18px", fontSize: 14,
           fontWeight: 500, color: "#0f172a", outline: "none",
           boxSizing: "border-box", fontFamily: "inherit", appearance: "none", cursor: "pointer",
           boxShadow: focused ? "0 0 0 3px rgba(34,211,238,0.12)" : "none",
@@ -161,7 +161,7 @@ function TextareaField({ label, name, value, onChange, error }) {
         onBlur={() => setFocused(false)}
         rows={3}
         style={{
-          width: "100%", borderRadius: 12, padding: "12px 14px", fontSize: 14,
+          width: "100%", borderRadius: 12, padding: "12px 18px", fontSize: 14,
           border: error ? "1.5px solid #f87171" : focused ? "1.5px solid #22d3ee" : "1.5px solid #e2e8f0",
           background: "#f8fafc", fontWeight: 500, color: "#0f172a", outline: "none",
           boxSizing: "border-box", fontFamily: "inherit", resize: "vertical",

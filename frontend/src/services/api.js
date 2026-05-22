@@ -304,6 +304,34 @@ export async function getNgoNotifications() {
   return unwrapList(await apiClient.get("/notifications"));
 }
 
+export async function getNgoDashboardStats() {
+  const response = await apiClient.get("/ngo-dashboard/stats");
+  return response.data?.data;
+}
+
+export async function getNgoDashboardCamps(params = {}) {
+  return unwrapList(await apiClient.get("/ngo-dashboard/camps", { params }));
+}
+
+export async function createNgoDashboardCamp(payload) {
+  const response = await apiClient.post("/ngo-dashboard/camps", payload);
+  return response.data?.data;
+}
+
+export async function updateNgoDashboardCampStatus(id, payload) {
+  const response = await apiClient.patch(`/ngo-dashboard/camps/${id}/status`, payload);
+  return response.data;
+}
+
+export async function getNgoCampDocuments(campId) {
+  return unwrapList(await apiClient.get(`/ngo-dashboard/camps/${campId}/documents`));
+}
+
+export async function uploadNgoCampDocument(campId, payload) {
+  const response = await apiClient.post(`/ngo-dashboard/camps/${campId}/documents`, payload);
+  return response.data?.data;
+}
+
 export async function getNotifications() {
   const response = await apiClient.get("/notifications");
   const payload = response.data || {};

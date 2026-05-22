@@ -53,7 +53,7 @@ function mapNgo(row) {
     logoUrl: row.logo_url,
     cover_url: row.cover_url,
     coverUrl: row.cover_url,
-    role: "ngo",
+    role: "ngo_admin",
     account_type: "ngo",
     accountType: "ngo",
     membership_status: row.membership_status || "under_review",
@@ -80,7 +80,7 @@ async function authenticateToken(req, res, next) {
 
   try {
     const payload = verifyAuthToken(token);
-    if (payload.account_type === "ngo" || payload.role === "ngo") {
+    if (payload.account_type === "ngo" || payload.role === "ngo" || payload.role === "ngo_admin") {
       const [ngoRows] = await pool.query("SELECT * FROM ngos WHERE id = ? LIMIT 1", [payload.id]);
       if (ngoRows.length === 0) {
         return res.status(401).json({ success: false, message: "NGO account no longer exists." });

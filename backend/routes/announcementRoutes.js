@@ -4,9 +4,10 @@ const { requireAuth } = require("../middleware/authMiddleware");
 const { pool } = require("../config/db");
 
 const router = express.Router();
+const ngoRoles = new Set(["ngo", "ngo_admin"]);
 
 function audienceForUser(user) {
-  if (user.role === "ngo") return ["ngos", "all"];
+  if (ngoRoles.has(user.role)) return ["ngos", "all"];
   if (user.role === "superadmin" || user.role === "it_staff") return ["admins", "all"];
   return ["volunteers", "all"];
 }
@@ -41,7 +42,7 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const audiences = audienceForUser(req.user);
-    const readUserId = req.user.role === "ngo" ? 0 : req.user.id;
+    const readUserId = ngoRoles.has(req.user.role) ? 0 : req.user.id;
     const [rows] = await pool.query(
       `
         SELECT a.*, ar.read_at
@@ -82,7 +83,7 @@ router.post(
   "/:id/read",
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role === "ngo") {
+    if (ngoRoles.has(req.user.role)) {
       return res.json({ success: true, data: { isRead: true, readAt: new Date().toISOString() } });
     }
 

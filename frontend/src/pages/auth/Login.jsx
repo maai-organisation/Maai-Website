@@ -15,7 +15,7 @@ const initialForm = {
 function TextField({ error, label, name, onChange, type = "text", value, rightSlot }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500 pl-2">
+      <label className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500 pl-1">
         {label}
       </label>
       <div
@@ -26,9 +26,9 @@ function TextField({ error, label, name, onChange, type = "text", value, rightSl
         }`}
       >
         <input
-          className={`h-12 w-full min-w-0 bg-transparent py-3 pl-6 ${
-            rightSlot ? "pr-24" : "pr-6"
-          } text-base font-semibold text-slate-950 outline-none placeholder:text-slate-400`}
+          className={`h-12 w-full min-w-0 bg-transparent py-3 pl-5 ${
+  rightSlot ? "pr-24" : "pr-5"
+} text-base font-semibold text-slate-950 outline-none placeholder:text-slate-400`}
           name={name}
           onChange={onChange}
           placeholder={label}

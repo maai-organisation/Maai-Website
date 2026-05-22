@@ -723,6 +723,64 @@ async function initDatabase() {
   }
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS ngo_camps (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      ngo_id INT UNSIGNED NOT NULL,
+      title VARCHAR(220) NOT NULL,
+      camp_type ENUM('health', 'awareness', 'screening', 'research', 'education', 'community', 'other') NOT NULL DEFAULT 'other',
+      description TEXT NOT NULL,
+      location VARCHAR(220) NOT NULL,
+      city VARCHAR(120) NOT NULL,
+      state VARCHAR(120) NULL,
+      proposed_date DATE NOT NULL,
+      scheduled_date DATE NULL,
+      expected_beneficiaries INT NOT NULL DEFAULT 0,
+      volunteers_required INT NOT NULL DEFAULT 0,
+      resources_needed TEXT NULL,
+      status ENUM('draft', 'submitted', 'under_review', 'approved', 'scheduled', 'completed', 'rejected') NOT NULL DEFAULT 'submitted',
+      workflow_step TINYINT UNSIGNED NOT NULL DEFAULT 2,
+      review_notes TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY ngo_camps_ngo_status_lookup (ngo_id, status, created_at),
+      KEY ngo_camps_schedule_lookup (scheduled_date, proposed_date),
+      CONSTRAINT ngo_camps_ngo_fk
+        FOREIGN KEY (ngo_id) REFERENCES ngos(id)
+        ON DELETE CASCADE
+    )
+  `);
+  await ensureColumn("ngo_camps", "scheduled_date", "DATE NULL");
+  await ensureColumn("ngo_camps", "workflow_step", "TINYINT UNSIGNED NOT NULL DEFAULT 2");
+  await ensureColumn("ngo_camps", "review_notes", "TEXT NULL");
+  await ensureIndex("ngo_camps", "ngo_camps_ngo_status_lookup", "KEY ngo_camps_ngo_status_lookup (ngo_id, status, created_at)");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ngo_camp_documents (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+      camp_id INT UNSIGNED NOT NULL,
+      document_type VARCHAR(80) NOT NULL DEFAULT 'supporting',
+      file_name VARCHAR(255) NOT NULL,
+      mime_type VARCHAR(120) NOT NULL DEFAULT 'application/octet-stream',
+      file_size INT UNSIGNED NOT NULL DEFAULT 0,
+      file_data LONGTEXT NOT NULL,
+      uploaded_by INT UNSIGNED NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY ngo_camp_documents_camp_lookup (camp_id, created_at),
+      CONSTRAINT ngo_camp_documents_camp_fk
+        FOREIGN KEY (camp_id) REFERENCES ngo_camps(id)
+        ON DELETE CASCADE,
+      CONSTRAINT ngo_camp_documents_uploader_fk
+        FOREIGN KEY (uploaded_by) REFERENCES ngos(id)
+        ON DELETE SET NULL
+    )
+  `);
+  await ensureColumn("ngo_camp_documents", "document_type", "VARCHAR(80) NOT NULL DEFAULT 'supporting'");
+  await ensureColumn("ngo_camp_documents", "file_data", "LONGTEXT NOT NULL");
+  await ensureIndex("ngo_camp_documents", "ngo_camp_documents_camp_lookup", "KEY ngo_camp_documents_camp_lookup (camp_id, created_at)");
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS ngo_notifications (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT,
       ngo_id INT UNSIGNED NOT NULL,

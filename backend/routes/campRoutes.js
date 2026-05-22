@@ -10,6 +10,7 @@ const router = express.Router();
 const manageCamps = authorizeRoles("superadmin", "it_staff");
 const campTypes = new Set(["health", "awareness", "screening", "research", "education", "community", "other"]);
 const statuses = new Set(["submitted", "under_review", "approved", "rejected", "completed"]);
+const ngoRoles = new Set(["ngo", "ngo_admin"]);
 
 function cleanString(value, maxLength = 1000) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
@@ -73,7 +74,7 @@ function normalizeCampRequest(input = {}) {
 async function logAudit(req, action, entityId, metadata = {}) {
   await pool.query(
     "INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, metadata_json) VALUES (?, ?, 'camp_request', ?, ?)",
-    [req.user.role === "ngo" ? null : req.user.id, `camp_requests.${action}`, entityId, JSON.stringify(metadata)],
+    [ngoRoles.has(req.user.role) ? null : req.user.id, `camp_requests.${action}`, entityId, JSON.stringify(metadata)],
   );
 }
 
@@ -91,7 +92,7 @@ router.get(
     const values = [];
 
     if (!admin) {
-      if (req.user.role !== "ngo") return res.status(403).json({ success: false, message: "NGO account required." });
+      if (!ngoRoles.has(req.user.role)) return res.status(403).json({ success: false, message: "NGO account required." });
       filters.push("cr.ngo_id = ?");
       values.push(req.user.id);
     }
@@ -136,7 +137,7 @@ router.post(
   "/requests",
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== "ngo") return res.status(403).json({ success: false, message: "NGO account required." });
+    if (!ngoRoles.has(req.user.role)) return res.status(403).json({ success: false, message: "NGO account required." });
     const { data, errors } = normalizeCampRequest(req.body);
     if (Object.keys(errors).length > 0) return res.status(400).json({ success: false, message: "Please fix the highlighted fields.", errors });
 
@@ -177,7 +178,7 @@ router.put(
   "/requests/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== "ngo") return res.status(403).json({ success: false, message: "NGO account required." });
+    if (!ngoRoles.has(req.user.role)) return res.status(403).json({ success: false, message: "NGO account required." });
     const { data, errors } = normalizeCampRequest(req.body);
     if (Object.keys(errors).length > 0) return res.status(400).json({ success: false, message: "Please fix the highlighted fields.", errors });
 
@@ -214,7 +215,7 @@ router.patch(
   "/requests/:id/cancel",
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== "ngo") return res.status(403).json({ success: false, message: "NGO account required." });
+    if (!ngoRoles.has(req.user.role)) return res.status(403).json({ success: false, message: "NGO account required." });
     const [result] = await pool.query("UPDATE camp_requests SET status = 'rejected', review_notes = 'Cancelled by NGO' WHERE id = ? AND ngo_id = ? AND status IN ('submitted', 'under_review')", [req.params.id, req.user.id]);
     if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Camp request not cancellable or not found." });
     res.json({ success: true });
@@ -292,7 +293,7 @@ router.get(
   "/notifications",
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== "ngo") return res.status(403).json({ success: false, message: "NGO account required." });
+    if (!ngoRoles.has(req.user.role)) return res.status(403).json({ success: false, message: "NGO account required." });
     const [rows] = await pool.query(
       `
         SELECT *
@@ -355,7 +356,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { data, errors } = normalizeCampRequest(req.body);
     if (Object.keys(errors).length > 0) return res.status(400).json({ success: false, message: "Please fix the highlighted fields.", errors });
-    const ngoId = req.user.role === "ngo" ? req.user.id : null;
+    const ngoId = ngoRoles.has(req.user.role) ? req.user.id : null;
     const [result] = await pool.query(
       `
         INSERT INTO camp_requests

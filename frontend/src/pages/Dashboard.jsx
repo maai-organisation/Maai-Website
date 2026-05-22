@@ -91,12 +91,17 @@ const css = `
 
   body { font-family: 'DM Sans', system-ui, sans-serif; background: #F6FAFB; color: var(--maai-navy); }
 
-  .maai-root { display: flex; min-height: 100vh; }
+  .maai-root {
+    display: flex;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
 
   /* ── Sidebar ── */
   .sidebar {
     width: var(--sidebar-w);
-    min-height: 100vh;
+    height: 100dvh;
+    min-height: 0;
     background: var(--maai-navy);
     display: flex;
     flex-direction: column;
@@ -105,7 +110,17 @@ const css = `
     left: 0; top: 0;
     z-index: 50;
     transition: transform .3s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
   }
+  .sidebar-nav {
+    padding: 10px 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .sidebar-nav::-webkit-scrollbar { display: none; }
   .sidebar-logo {
     display: flex; align-items: center; gap: 12px;
     padding: 24px 20px 20px;
@@ -224,9 +239,15 @@ const css = `
   /* ── Main ── */
   .main-content {
     margin-left: var(--sidebar-w);
-    flex: 1; min-height: 100vh; display: flex; flex-direction: column;
+    flex: 1; min-width: 0; min-height: 100dvh; display: flex; flex-direction: column;
   }
-  .page-body { padding: 28px 32px 48px; display: flex; flex-direction: column; gap: 28px; }
+  .page-body {
+    width: 100%;
+    padding: 28px 32px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
 
   /* ── Hero ── */
   .hero {
@@ -544,7 +565,7 @@ function Sidebar({ items, displayName, role, onClose, isOpen }) {
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: "10px 0", flex: 1, overflowY: "auto" }}>
+        <nav className="sidebar-nav">
           <div className="sidebar-section-label">Main</div>
           {groups.main.map(item => <NavItem key={item.path} item={item} onClick={onClose} />)}
 
